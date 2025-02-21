@@ -30,6 +30,9 @@ class Synthetic:
             expected_results[t]['d_intensity'] = None
             expected_results[t]['d_startpoint'] = None
             expected_results[t]['add_noise'] = None
+            expected_results[t]['c0'] = None
+            expected_results[t]['alpha'] = None
+            expected_results[t]['cs'] = None
 
             # print('time',t)
             alpha, cs, c0, deadband, d_intensity, d_startpoint, add_noise = self.find_rawData_config(datetime=t)
@@ -54,6 +57,9 @@ class Synthetic:
             expected_results[t]['d_intensity'] = d_intensity
             expected_results[t]['d_startpoint'] = d_startpoint
             expected_results[t]['add_noise'] = add_noise
+            expected_results[t]['c0'] = c0
+            expected_results[t]['alpha'] = alpha
+            expected_results[t]['cs'] = cs
 
             # print()
 
@@ -63,7 +69,10 @@ class Synthetic:
                 'deadband': (['time'], np.array([expected_results[t]['deadband'] for t in self.ds.time.values])),
                 'd_intensity': (['time'], np.array([expected_results[t]['d_intensity'] for t in self.ds.time.values])),
                 'd_startpoint': (['time'], np.array([expected_results[t]['d_startpoint'] for t in self.ds.time.values])),
-                'add_noise': (['time'], np.array([expected_results[t]['add_noise'] for t in self.ds.time.values]))
+                'add_noise': (['time'], np.array([expected_results[t]['add_noise'] for t in self.ds.time.values])),
+                'c0': (['time'], np.array([expected_results[t]['c0'] for t in self.ds.time.values])),
+                'alpha': (['time'], np.array([expected_results[t]['alpha'] for t in self.ds.time.values])),
+                'cs': (['time'], np.array([expected_results[t]['cs'] for t in self.ds.time.values])),	
             },
             coords={
                 'time': self.ds.time,
