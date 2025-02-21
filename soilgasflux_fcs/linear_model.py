@@ -78,7 +78,7 @@ class LINEAR_model:
     
         try:
             result = fmodel.fit(gas_concentration[deadband:cutoff], params, t=t[deadband:cutoff])
-            print(result)
+            # print(result)
         except Exception as e:
             print(e)
             result = None
@@ -110,7 +110,7 @@ class LINEAR_model:
                                                     c_0=C_0,
                                                      deadband=deadband, cutoff=cutoff)
         
-        print(result_fit)
+        # print(result_fit)
 
         dcdt = result_fit['parameters_best_fit']['dcdt']
         c0 = result_fit['parameters_best_fit']['c0']
