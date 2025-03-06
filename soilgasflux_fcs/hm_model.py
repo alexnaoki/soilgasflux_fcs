@@ -108,12 +108,25 @@ class HM_model:
             print(e)
             return None
         
+        # print(result.eval_uncertainty(result.params,sigma=1))
+        # print()
+        # print(result.fit_report())
+        # print(result.params['cx'].stderr)
+        # print(type(result.params['cx']))
+        # print(result.ci_report())
+        # print()
+
+        # print(result.summary())
+        
         try:
             return {'parameters_best_fit':{'cx':result.params['cx'].value,
                                            'a':result.params['a'].value,
                                            't0':result.params['t0'].value,
                                            'c0':c_0},
                     # 'uncertainty':result.eval_uncertainty(result.params,sigma=1),
+                    'uncertainty': {'cx':result.params['cx'].stderr,
+                                    'a':result.params['a'].stderr,
+                                    't0':result.params['t0'].stderr},
                     
                     }
         except Exception as e:
@@ -165,3 +178,62 @@ class HM_model:
                                              dc_dt=dc_dt)
         return dc_dt, C_0,cx, a, t0, soilgasflux_CO2, deadband, cutoff
         # return dc_dt,soilgasflux_CO2, uncertainty, fitted_x,fitted_y, fitted_y_lower, fitted_y_higher, dc_dt_lower, dc_dt_higher, lower_ci, higher_ci, cx, a, t0, temperature_start, pressure_start, humidity_start,C_0[0]
+
+
+    def calculate_MC(self, deadband, cutoff, n=1000):
+        '''
+        
+        '''
+        if self.using_rpi:
+            X_h2o = self.mole_fraction_water_vapor(self.temperature, self.humidity, self.pressure)
+        else:
+            X_h2o = self.X_h2o
+
+        C_0 = self.C_0_calculated(self.co2.values[:10])
+        
+        result_fit = self.fit_target_function_cutoff(self.timestamp.values, 
+                                                     self.co2.values, 
+                                                     np.float32(C_0)[0], 
+                                                     deadband=deadband, cutoff=cutoff, display_results=True)
+        
+        
+        cx = result_fit['parameters_best_fit']['cx']
+        a = result_fit['parameters_best_fit']['a']
+        t0 = result_fit['parameters_best_fit']['t0']
+
+        sigma_cx = result_fit['uncertainty']['cx']
+        sigma_a = result_fit['uncertainty']['a']
+        sigma_t0 = result_fit['uncertainty']['t0']
+
+        cxMC = cx + sigma_cx*np.random.normal(size=n)
+        aMC = a + sigma_a*np.random.normal(size=n)
+        t0MC = t0 + sigma_t0*np.random.normal(size=n)
+
+        
+
+
+        temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
+        pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
+        humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
+
+        
+        # fitted_y = self.target_function(t=self.timestamp.values[deadband:cutoff],
+        #                                 cx=cx,
+        #                                 a=a,
+        #                                 t0=t0,
+        #                                 c0=C_0)
+        # fitted_x = self.timestamp.values[deadband:cutoff]
+        
+        
+        # dc_dt = (self.dcdt(t0, C_0, a, cx, self.timestamp)).mean()
+        dc_dtMC = self.dcdt(t0MC, C_0, aMC, cxMC, self.timestamp.mean())
+        
+        soilgasflux_CO2MC = self.gas_eeflux_v2(volume=self.volume, 
+                                             area=self.area, 
+                                             P0=self.pressure.head(1)[0], 
+                                             W0=X_h2o.head(1)[0],
+                                             T0=self.temperature.head(1)[0], 
+                                             dc_dt=dc_dtMC)
+        
+
+        return dc_dtMC, C_0,cxMC, aMC, t0MC, soilgasflux_CO2MC, deadband, cutoff

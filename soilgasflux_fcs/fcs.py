@@ -92,45 +92,78 @@ class FCS:
                 except Exception as e:
                     print('ERROR LINEAR ####')
                     print(e)
-
-                    # aic = uncertainty.calculate_AIC(y=df_measurement['k30_co2'].values[deadband:c],
-                    #                                 yhat=v[4], p=5)
-
-                # try:
-                #     return results
-                # except Exception as e:
-                #     print('ERROR ####')
-                #     return None
-
-        # print(results['dcdt(HM)'])
-        # print(results['dcdt(linear)'])
-        # fig, ax = plt.subplots(2,3, figsize=(10,6))
-        # g1=ax[0,0].pcolormesh(XX, YY, results['dcdt(HM)'])
-        # fig.colorbar(g1)
-        # ax[0,0].set_title('dcdt HM')
-        # ax[0,0].set_xlabel('Deadband')
-        # ax[0,0].set_ylabel('Cutoff')
-
-        # g4=ax[1,0].pcolormesh(XX, YY, results['AIC(HM)'])
-        # fig.colorbar(g4)
-
-        # g2=ax[0,1].pcolormesh(XX, YY, results['dcdt(linear)'])
-        # fig.colorbar(g2)
-        # ax[0,1].set_title('dcdt Linear')
-        # ax[0,1].set_xlabel('Deadband')
-        # ax[0,1].set_ylabel('Cutoff')
-
-        # g5=ax[1,1].pcolormesh(XX, YY, results['AIC(linear)'])
-        # fig.colorbar(g5)
-
-        # g3=ax[0,2].pcolormesh(XX, YY, results['dcdt(HM)'] - results['dcdt(linear)'])
-        # fig.colorbar(g3)
-        # ax[0,2].set_title('dcdt HM - Linear')
-        # ax[0,2].set_xlabel('Deadband')
-        # ax[0,2].set_ylabel('Cutoff')
-
-        # fig.tight_layout()
-
         return results
 
+
+    def run_MC(self, n, n_MC, metadata={'area':314, 'volume':6283}):
+        x_deadband = self.deadband_options
+        y_cutoff = self.cutoff_options
+        
+        # Create proper 3D arrays
+        shape_3d = (len(y_cutoff), len(x_deadband), n_MC)
+        
+        results = {f'{n}': {
+            'deadband': x_deadband, 
+            'cutoff': y_cutoff, 
+            'MC': np.arange(n_MC),
+            'dcdt(HM)': np.full(shape_3d, np.nan),
+            # 'dcdt(linear)': np.full(shape_3d, np.nan),
+            'AIC(HM)': np.full(shape_3d, np.nan),
+            # 'AIC(linear)': np.full(shape_3d, np.nan),
+            'RMSE(HM)': np.full(shape_3d, np.nan),
+            # 'RMSE(linear)': np.full(shape_3d, np.nan)
+        }}
+        
+        for n_deadband, deadband in enumerate(self.deadband_options):
+            for n_cutoff, cutoff in enumerate(self.cutoff_options):
+                if cutoff - deadband < self.min_window_size:
+                    continue
+                    
+                try:
+                    hm = HM_model(raw_data=self.df_data, metadata=metadata)
+                    hm_results = hm.calculate_MC(deadband=deadband, cutoff=cutoff, n=n_MC)
+                    dc_dt, C_0, cx, a, t0, soilgasflux_CO2, deadband, cutoff = hm_results
+                    
+                    # Ensure arrays have proper shape
+                    t = np.arange(deadband, cutoff, 1)
+                    
+                    # Reshape parameter arrays if needed
+                    if not isinstance(cx, np.ndarray) or cx.ndim == 1:
+                        cx = np.array(cx).reshape(n_MC, 1)
+                    if not isinstance(a, np.ndarray) or a.ndim == 1:
+                        a = np.array(a).reshape(n_MC, 1)
+                    if not isinstance(t0, np.ndarray) or t0.ndim == 1:
+                        t0 = np.array(t0).reshape(n_MC, 1)
+                    
+                    TT, NN = np.meshgrid(t, np.arange(n_MC))
+                    
+                    hm_co2_MC = hm_model(t=TT, cx=cx, a=a, t0=t0, c0=C_0)
+                    
+                    metrics = self.run_metrics(y_raw=self.df_data['k30_co2'].values[deadband:cutoff],
+                                              y_model=hm_co2_MC)
+                    
+                    # Store results in the 3D array
+                    # For dc_dt, store all MC values in the appropriate slice
+                    results[f'{n}']['dcdt(HM)'][n_cutoff, n_deadband, :] = dc_dt
+                    
+                    # For metrics, may need to handle differently depending on what run_metrics returns
+                    if isinstance(metrics['aic'], np.ndarray) and len(metrics['aic']) == n_MC:
+                        results[f'{n}']['AIC(HM)'][n_cutoff, n_deadband, :] = metrics['aic']
+                    else:
+                        results[f'{n}']['AIC(HM)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['aic'])
+                        
+                    if isinstance(metrics['rmse'], np.ndarray) and len(metrics['rmse']) == n_MC:
+                        results[f'{n}']['RMSE(HM)'][n_cutoff, n_deadband, :] = metrics['rmse']
+                    else:
+                        results[f'{n}']['RMSE(HM)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['rmse'])
+
+                except Exception as e:
+                    print('ERROR HM ####')
+                    print(e)
+                    
+                # Similar structure for the linear model portion...
+        
+        # Now results has proper 3D arrays that can be easily manipulated
+        print(f"Shape of dcdt(HM): {results[f'{n}']['dcdt(HM)'].shape}")
+        return results
 
