@@ -11,7 +11,10 @@ def calculate_AIC(y, yhat, p):
     '''
     n = len(y)
     resid = y - yhat
-    sse = np.sum(resid**2)
+    try:
+        sse = np.sum(resid**2, axis=1)
+    except:
+        sse = np.sum(resid**2)
     aic = n * np.log(sse/n) + 2*p
     return aic
 
@@ -32,8 +35,12 @@ def rmse(y, yhat):
     yhat: predicted values
     '''
     n = len(y)
+    # print(n)
     resid = y - yhat
-    rmse = np.sqrt(np.sum(resid**2)/n)
+    try:
+        rmse = np.sqrt(np.sum(resid**2, axis=1)/n)
+    except:
+        rmse = np.sqrt(np.sum(resid**2)/n)
     return rmse
 
 def confidence_interval(x, xd, yd, yp, p, conf=0.95):
