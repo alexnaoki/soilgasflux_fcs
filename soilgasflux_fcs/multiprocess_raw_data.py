@@ -118,12 +118,12 @@ class Multiprocessor:
 
             ds = xr.Dataset(
                 {
-                    'dcdt(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['dcdt(HM)'] for t in times])),
-                    'dcdt(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['dcdt(linear)'] for t in times])),
-                    'AIC(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['AIC(HM)'] for t in times])),
-                    'AIC(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['AIC(linear)'] for t in times])),
-                    'RMSE(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(HM)'] for t in times])),
-                    'RMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(linear)'] for t in times]))
+                    'dcdt(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['dcdt(HM)'] for t in times], dtype=np.float32)),
+                    'dcdt(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['dcdt(linear)'] for t in times], dtype=np.float32)),
+                    'AIC(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['AIC(HM)'] for t in times], dtype=np.float32)),
+                    'AIC(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['AIC(linear)'] for t in times], dtype=np.float32)),
+                    'RMSE(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(HM)'] for t in times], dtype=np.float32)),
+                    'RMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(linear)'] for t in times], dtype=np.float32))
                 },
                 coords={
                     'time': times,
