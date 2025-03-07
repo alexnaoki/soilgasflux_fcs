@@ -144,6 +144,9 @@ class FCS:
                     
                     # Store results in the 3D array
                     # For dc_dt, store all MC values in the appropriate slice
+                    # print('hm')
+                    # print(dc_dt.shape)
+
                     results[f'{n}']['dcdt(HM)'][n_cutoff, n_deadband, :] = dc_dt
                     
                     # For metrics, may need to handle differently depending on what run_metrics returns
@@ -167,17 +170,23 @@ class FCS:
                     linear_results = linear.calculate_MC(deadband=deadband, cutoff=cutoff, n=n_MC)
                     dc_dt, C_0, soilgasflux_CO2, deadband, cutoff = linear_results
                     t = np.arange(deadband, cutoff, 1)
-                    # print(dc_dt.shape)
+                    
                     if not isinstance(dc_dt, np.ndarray) or dc_dt.ndim == 1:
-                        dc_dt = dc_dt.reshape(n_MC, 1)
-                    # if not isinstance(C_0, np.ndarray) or C_0.ndim == 1:
-                    #     C_0 = C_0.reshape(n_MC, 1)
+                        dc_dt = np.array(dc_dt).reshape(n_MC, 1)
+                    if not isinstance(C_0, np.ndarray) or C_0.ndim == 1:
+                        C_0 = np.array(C_0).reshape(n_MC, 1)
                     
                     TT, NN = np.meshgrid(t, np.arange(n_MC))
 
                     linear_co2_MC = linear_model(t=TT, dcdt=dc_dt, c0=C_0)
                     metrics = self.run_metrics(y_raw=self.df_data['k30_co2'].values[deadband:cutoff],
                                                y_model=linear_co2_MC)
+
+                    dc_dt = np.squeeze(dc_dt)
+
+
+                    results[f'{n}']['dcdt(linear)'][n_cutoff, n_deadband, :] = dc_dt
+
                     if isinstance(metrics['aic'], np.ndarray) and len(metrics['aic']) == n_MC:
                         results[f'{n}']['AIC(linear)'][n_cutoff, n_deadband, :] = metrics['aic']
                     else:
@@ -186,9 +195,8 @@ class FCS:
                         results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = metrics['rmse']
                     else:
                         results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['rmse'])
-                    # results[f'{n}']['dcdt(linear)'][n_cutoff, n_deadband, :] = dc_dt
-                    # results[f'{n}']['AIC(linear)'][n_cutoff, n_deadband, :] = metrics['aic']
-                    # results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = metrics['rmse']
+                    
+                
                 except Exception as e:
                     print('ERROR LINEAR ####')
                     print(e)

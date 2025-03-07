@@ -115,6 +115,7 @@ class Multiprocessor:
             deadband = list(converted_data[times[0]]['deadband'])
             n_MC = list(converted_data[times[0]]['MC'])
             print(deadband, cutoff)
+            # print(converted_data[times[0]]['dcdt(linear)'])
 
             ds = xr.Dataset(
                 {

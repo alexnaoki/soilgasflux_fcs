@@ -156,10 +156,12 @@ class LINEAR_model:
 
         # print(result_fit)
         sigma_dcdt = result_fit['uncertainty']['dcdt']
-        c0 = result_fit['uncertainty']['c0']
+        sigma_c0 = result_fit['uncertainty']['c0']
+
         
 
         dcdt_MC = dcdt + np.random.normal(0, sigma_dcdt, n)
+        c0_MC = c0 + np.random.normal(0, sigma_c0, n)
 
         temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
         pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
@@ -174,5 +176,5 @@ class LINEAR_model:
         
         # print(X_h2o)
 
-        return dcdt_MC, c0, soilgasflux_CO2MC, deadband, cutoff
+        return dcdt_MC, c0_MC, soilgasflux_CO2MC, deadband, cutoff
 
