@@ -86,7 +86,8 @@ class LINEAR_model:
         try:
             return {'parameters_best_fit':{'dcdt':result.best_values['dcdt'], 
                                            'c0':result.best_values['c0']}, 
-                                        #    'result':result
+                    'uncertainty':{'dcdt':result.params['dcdt'].stderr,
+                                   'c0':result.params['c0'].stderr},
                                            }
         except Exception as e:
             print(e)
@@ -129,3 +130,49 @@ class LINEAR_model:
         # print(X_h2o)
 
         return dcdt, c0, soilgasflux_CO2, deadband, cutoff
+
+    def calculate_MC(self, deadband, cutoff, n=1000):
+        '''
+        
+        '''
+
+        if self.using_rpi:
+            X_h2o = self.mole_fraction_water_vapor(self.temperature, self.humidity, self.pressure)[deadband]
+        else:
+            X_h2o = self.X_h2o
+
+        C_0 = self.co2.values[0]
+
+        result_fit = self.fit_target_function_cutoff(t=self.timestamp.values,
+                                                     gas_concentration=self.co2.values,
+                                                    #  c_0=np.float32(C_0)[0],
+                                                    c_0=C_0,
+                                                     deadband=deadband, cutoff=cutoff)
+        
+        # print(result_fit)
+
+        dcdt = result_fit['parameters_best_fit']['dcdt']
+        c0 = result_fit['parameters_best_fit']['c0']
+
+        # print(result_fit)
+        sigma_dcdt = result_fit['uncertainty']['dcdt']
+        c0 = result_fit['uncertainty']['c0']
+        
+
+        dcdt_MC = dcdt + np.random.normal(0, sigma_dcdt, n)
+
+        temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
+        pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
+        humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
+
+        soilgasflux_CO2MC = self.gas_eeflux_v2(volume=self.volume,
+                                             area=self.area,
+                                             P0=pressure_start,
+                                             W0=X_h2o,
+                                             T0=temperature_start,
+                                             dc_dt=dcdt_MC)
+        
+        # print(X_h2o)
+
+        return dcdt_MC, c0, soilgasflux_CO2MC, deadband, cutoff
+

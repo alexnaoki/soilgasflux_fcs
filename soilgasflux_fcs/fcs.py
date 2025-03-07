@@ -107,11 +107,11 @@ class FCS:
             'cutoff': y_cutoff, 
             'MC': np.arange(n_MC),
             'dcdt(HM)': np.full(shape_3d, np.nan),
-            # 'dcdt(linear)': np.full(shape_3d, np.nan),
+            'dcdt(linear)': np.full(shape_3d, np.nan),
             'AIC(HM)': np.full(shape_3d, np.nan),
-            # 'AIC(linear)': np.full(shape_3d, np.nan),
+            'AIC(linear)': np.full(shape_3d, np.nan),
             'RMSE(HM)': np.full(shape_3d, np.nan),
-            # 'RMSE(linear)': np.full(shape_3d, np.nan)
+            'RMSE(linear)': np.full(shape_3d, np.nan)
         }}
         
         for n_deadband, deadband in enumerate(self.deadband_options):
@@ -160,10 +160,44 @@ class FCS:
                 except Exception as e:
                     print('ERROR HM ####')
                     print(e)
+                    print(f'Deadband: {deadband}, Cutoff: {cutoff}')
+
+                try:
+                    linear = LINEAR_model(raw_data=self.df_data, metadata=metadata)
+                    linear_results = linear.calculate_MC(deadband=deadband, cutoff=cutoff, n=n_MC)
+                    dc_dt, C_0, soilgasflux_CO2, deadband, cutoff = linear_results
+                    t = np.arange(deadband, cutoff, 1)
+                    # print(dc_dt.shape)
+                    if not isinstance(dc_dt, np.ndarray) or dc_dt.ndim == 1:
+                        dc_dt = dc_dt.reshape(n_MC, 1)
+                    # if not isinstance(C_0, np.ndarray) or C_0.ndim == 1:
+                    #     C_0 = C_0.reshape(n_MC, 1)
                     
-                # Similar structure for the linear model portion...
+                    TT, NN = np.meshgrid(t, np.arange(n_MC))
+
+                    linear_co2_MC = linear_model(t=TT, dcdt=dc_dt, c0=C_0)
+                    metrics = self.run_metrics(y_raw=self.df_data['k30_co2'].values[deadband:cutoff],
+                                               y_model=linear_co2_MC)
+                    if isinstance(metrics['aic'], np.ndarray) and len(metrics['aic']) == n_MC:
+                        results[f'{n}']['AIC(linear)'][n_cutoff, n_deadband, :] = metrics['aic']
+                    else:
+                        results[f'{n}']['AIC(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['aic'])
+                    if isinstance(metrics['rmse'], np.ndarray) and len(metrics['rmse']) == n_MC:
+                        results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = metrics['rmse']
+                    else:
+                        results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['rmse'])
+                    # results[f'{n}']['dcdt(linear)'][n_cutoff, n_deadband, :] = dc_dt
+                    # results[f'{n}']['AIC(linear)'][n_cutoff, n_deadband, :] = metrics['aic']
+                    # results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = metrics['rmse']
+                except Exception as e:
+                    print('ERROR LINEAR ####')
+                    print(e)
+                    print(f'Deadband: {deadband}, Cutoff: {cutoff}')
+
+                    
+                
         
         # Now results has proper 3D arrays that can be easily manipulated
-        print(f"Shape of dcdt(HM): {results[f'{n}']['dcdt(HM)'].shape}")
+        # print(f"Shape of dcdt(HM): {results[f'{n}']['dcdt(HM)'].shape}")
         return results
 
