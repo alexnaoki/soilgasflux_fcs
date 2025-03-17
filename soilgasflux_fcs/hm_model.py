@@ -169,7 +169,7 @@ class HM_model:
         fitted_x = self.timestamp.values[deadband:cutoff]
         
         
-        dc_dt = (self.dcdt(t0, C_0, a, cx, self.timestamp)).mean()
+        dc_dt = (self.dcdt(t0, C_0, a, cx, self.timestamp[deadband:cutoff])).mean()
         soilgasflux_CO2 = self.gas_eeflux_v2(volume=self.volume, 
                                              area=self.area, 
                                              P0=self.pressure.head(1)[0], 
