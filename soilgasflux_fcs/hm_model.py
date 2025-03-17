@@ -226,7 +226,7 @@ class HM_model:
         
         
         # dc_dt = (self.dcdt(t0, C_0, a, cx, self.timestamp)).mean()
-        dc_dtMC = self.dcdt(t0MC, C_0, aMC, cxMC, self.timestamp.mean())
+        dc_dtMC = self.dcdt(t0MC, C_0, aMC, cxMC, self.timestamp[deadband:cutoff].mean())
         
         soilgasflux_CO2MC = self.gas_eeflux_v2(volume=self.volume, 
                                              area=self.area, 
