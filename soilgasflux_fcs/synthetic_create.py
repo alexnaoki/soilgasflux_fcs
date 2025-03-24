@@ -12,6 +12,11 @@ class Generator:
         self.total_time = total_time
         self.c0 = c0
 
+        self.datetime_creation = dt.datetime.now()
+        self.selected = {
+            'alpha': [], 'cs': [], 't0': [], 'c0': []
+        }
+
     def find_nearest(self, array, value):
         array = np.asarray(array)
         # print(array)
@@ -62,7 +67,6 @@ class Generator:
         indices = np.column_stack((rows, cols))
         
         return values, indices
-
 
     def alpha_cs_plot(self, alpha_min, alpha_max, cs_min, cs_max, n=100):
         alpha_start = np.log10(alpha_min)
@@ -166,12 +170,12 @@ class Generator:
 
         fig.show()
         
-
     def cc_curve_plot(self, selected_dcdt):
+
         target_dcdt = self.find_nearest_n(self.dcdt, selected_dcdt, n=100)
         # print(target_dcdt)
 
-        print((self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]]).argmax())
+        # print((self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]]).argmax())
 
         biggest_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argmax()
         most_straight_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argmin()
@@ -203,7 +207,7 @@ class Generator:
                                     cx=self.cs[target_dcdt[1][big_curve][0]],
                                     a=self.alpha[target_dcdt[1][big_curve][1]],
                                     t0=0,
-                                    c0=self.c0), color='red', linestyle='--')
+                                    c0=self.c0), color='red', linestyle='-.')
             ax[0].plot(models.hm_model(t=np.arange(self.total_time),
                                     cx=self.cs[target_dcdt[1][straight_curve][0]],
                                     a=self.alpha[target_dcdt[1][straight_curve][1]],
@@ -213,11 +217,28 @@ class Generator:
                                     cx=self.cs[target_dcdt[1][inbetween_curve][0]],
                                     a=self.alpha[target_dcdt[1][inbetween_curve][1]],
                                     t0=0,
-                                    c0=self.c0), color='red', alpha=0.5)
+                                    c0=self.c0), color='red', linestyle='--')
             
-            ax[1].axvline(target_dcdt[0][big_curve], color='red', linestyle='--')
+            self.selected['alpha'].append(self.alpha[target_dcdt[1][big_curve][1]])
+            self.selected['cs'].append(self.cs[target_dcdt[1][big_curve][0]])
+            self.selected['t0'].append(0)
+            self.selected['c0'].append(self.c0)
+
+            self.selected['alpha'].append(self.alpha[target_dcdt[1][straight_curve][1]])
+            self.selected['cs'].append(self.cs[target_dcdt[1][straight_curve][0]])
+            self.selected['t0'].append(0)
+            self.selected['c0'].append(self.c0)
+
+            self.selected['alpha'].append(self.alpha[target_dcdt[1][inbetween_curve][1]])
+            self.selected['cs'].append(self.cs[target_dcdt[1][inbetween_curve][0]])
+            self.selected['t0'].append(0)
+            self.selected['c0'].append(self.c0)
+            
+
+            
+            ax[1].axvline(target_dcdt[0][big_curve], color='red', linestyle='-.')
             ax[1].axvline(target_dcdt[0][straight_curve], color='red')
-            ax[1].axvline(target_dcdt[0][inbetween_curve], color='red', alpha=0.5)
+            ax[1].axvline(target_dcdt[0][inbetween_curve], color='red', linestyle='--')
             ax[2].scatter(self.alpha[target_dcdt[1][big_curve][1]], self.cs[target_dcdt[1][big_curve][0]], color='red')
             ax[2].scatter(self.alpha[target_dcdt[1][straight_curve][1]], self.cs[target_dcdt[1][straight_curve][0]], color='red')
             ax[2].scatter(self.alpha[target_dcdt[1][inbetween_curve][1]], self.cs[target_dcdt[1][inbetween_curve][0]], color='red', alpha=0.5)
@@ -231,3 +252,109 @@ class Generator:
         ax[2].set_title('dcdt vs alpha and cs')
 
         fig.tight_layout()
+
+
+    def generate_base(self, alpha, cs, c0, t0,total_time, deadband, background_band,
+                      unmixed_phase, unmixed_disturbance_intensity, 
+                      mixed_phase_disturbance, disturbance_intensity, disturbance_starting_point,
+                      add_noise, noise_intensity):
+        config  = {}
+        time = np.arange(total_time)
+        final_values = np.zeros(total_time)
+
+        background_values = np.ones(total_time)*c0
+
+        c_cx = models.hm_model(t=time, cx=cs, a=alpha, t0=t0, c0=c0)
+
+        final_values += c_cx
+        final_values[:deadband] = background_values[:deadband]
+
+        if deadband > 0:
+            diff = c_cx[deadband] - c0
+
+            interpolated = np.exp(np.interp(np.arange(deadband), [0, deadband], [np.log(diff*0.1), np.log(diff)]))
+
+            final_values[:deadband] = interpolated+c0
+            final_values[0] = c0
+
+        if add_noise:
+            noise = np.random.normal(0, noise_intensity, total_time)
+            final_values[:] += noise
+        
+        # plt.scatter(time, background_values, color='blue', label='background', s=2)
+        # plt.scatter(time, c_cx, color='red', label='c_cx', s=2)
+        plt.scatter(time, final_values, color='green', label='final', s=2)
+
+        config['alpha'] = alpha
+        config['c_s'] = cs
+        config['c_c0'] = c0
+        config['t0'] = t0
+        config['total_time'] = total_time
+        config['deadband'] = deadband
+        config['background_band'] = background_band
+        config['unmixed_phase'] = unmixed_phase
+        config['unmixed_disturbance_intensity'] = unmixed_disturbance_intensity
+        config['mixed_phase_disturbance'] = mixed_phase_disturbance
+        config['disturbance_intensity'] = disturbance_intensity
+        config['disturbance_starting_point'] = disturbance_starting_point
+        config['add_noise'] = add_noise
+        config['noise_intensity'] = noise_intensity
+        config['final_value'] = final_values
+
+        return config
+
+    def write_file(self, config, save_path):
+        data = {'raw_data': {}}
+        
+        k30 = config['final_value'].tolist()
+        datetime = np.arange(len(k30))
+        bmp_pressure = np.ones(len(k30))*99000
+        bmp_temperature = np.ones(len(k30))*20
+        si_humidity = np.ones(len(k30))*70
+        si_temperature = np.ones(len(k30))*20
+
+        print(self.datetime_creation, self.datetime_creation + dt.timedelta(seconds=len(datetime)))
+        datetime_list = [self.datetime_creation + dt.timedelta(seconds=int(i)) for i in np.arange(len(k30))]
+        datetime_utc = [i.strftime('%Y-%m-%d %H:%M:%S') for i in datetime_list]
+        self.datetime_creation = self.datetime_creation + dt.timedelta(seconds=len(datetime))
+
+        data['raw_data']['datetime'] = datetime.tolist()
+        data['raw_data']['datetime_utc'] = datetime_utc
+        data['raw_data']['k30_co2'] = k30
+        data['raw_data']['bmp_pressure'] = bmp_pressure.tolist()
+        data['raw_data']['bmp_temperature'] = bmp_temperature.tolist()
+        data['raw_data']['si_humidity'] = si_humidity.tolist()
+        data['raw_data']['si_temperature'] = si_temperature.tolist()
+
+        config['final_value'] = None
+        data['config'] = config
+
+        filename_datetime = datetime_list[0]
+        filename = f'{filename_datetime.year}-{filename_datetime.month}-{filename_datetime.day}_{filename_datetime.hour}-{filename_datetime.minute}-{filename_datetime.second}'
+        with open(f'{save_path}/{filename}.json', 'w') as f:
+            json.dump(data, f)
+            print(f'File {filename}.json saved')
+        
+        return data
+
+    def create_selected(self, save_path):
+        for i in range(len(self.selected['alpha'])):
+            # print(i)
+            # print(self.selected['alpha'][i], self.selected['cs'][i], self.selected['t0'][i], self.selected['c0'][i])
+            config = self.generate_base(alpha=self.selected['alpha'][i], 
+                                        cs=self.selected['cs'][i], 
+                                        c0=self.selected['c0'][i], 
+                                        t0=self.selected['t0'][i], 
+                                        total_time=self.total_time, 
+                                        deadband=0, 
+                                        background_band=0,
+                                        unmixed_phase=0, 
+                                        unmixed_disturbance_intensity=0, 
+                                        mixed_phase_disturbance=0, 
+                                        disturbance_intensity=0, 
+                                        disturbance_starting_point=0,
+                                        add_noise=False, 
+                                        noise_intensity=0)
+            # print(config)
+            self.write_file(config, save_path=save_path)
+            
