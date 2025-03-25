@@ -337,7 +337,7 @@ class Generator:
         
         return data
 
-    def create_selected(self, save_path):
+    def create_selected(self, add_noise, noise_intensity,save_path):
         for i in range(len(self.selected['alpha'])):
             # print(i)
             # print(self.selected['alpha'][i], self.selected['cs'][i], self.selected['t0'][i], self.selected['c0'][i])
@@ -353,8 +353,8 @@ class Generator:
                                         mixed_phase_disturbance=0, 
                                         disturbance_intensity=0, 
                                         disturbance_starting_point=0,
-                                        add_noise=False, 
-                                        noise_intensity=0)
+                                        add_noise=add_noise, 
+                                        noise_intensity=noise_intensity)
             # print(config)
             self.write_file(config, save_path=save_path)
             
