@@ -37,7 +37,7 @@ class Multiprocessor:
         a_fcs.settings(moving_window=True, window_walk=10, min_window_size=20, 
                        min_deadband=0, max_deadband=60)
         
-        results = a_fcs.run_MC(n=id, n_MC=100,metadata={'area':314, 'volume':6283})
+        results = a_fcs.run_MC(n=id, n_MC=500,metadata={'area':314, 'volume':6283})
         print('Results:', results.keys())
         return results
 
