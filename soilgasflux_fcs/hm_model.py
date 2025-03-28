@@ -208,8 +208,6 @@ class HM_model:
         aMC = a + sigma_a*np.random.normal(size=n)
         t0MC = t0 + sigma_t0*np.random.normal(size=n)
 
-<<<<<<< HEAD
-=======
         mcmc = MCMC()
         sampler, flat_samples = mcmc.run_mcmc(t=self.timestamp.values[deadband:cutoff], 
                                               y=self.co2.values[deadband:cutoff], 
@@ -232,7 +230,6 @@ class HM_model:
 
         dc_dtMC = dcdt_samples
 
->>>>>>> dabb4f2e65f5f933919eb08d8b4669a111784418
         temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
         pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
         humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
