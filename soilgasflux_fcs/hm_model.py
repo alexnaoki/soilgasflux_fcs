@@ -6,8 +6,12 @@ from scipy import stats
 from scipy.optimize import curve_fit
 from lmfit import Model
 from lmfit import Parameters
+from lmfit import conf_interval2d, report_ci
 from sklearn.metrics import mean_squared_error
 import seaborn as sns
+from .mcmc import MCMC
+import warnings
+warnings.filterwarnings("ignore")
 
 class HM_model:
     def __init__(self, raw_data, metadata, using_rpi=True):
@@ -95,9 +99,12 @@ class HM_model:
 
     def fit_target_function_cutoff(self, t, gas_concentration, c_0, deadband, cutoff,display_results=True, pi=False):
         fmodel = Model(self.target_function)
-        params = fmodel.make_params(cx=c_0, a=0.1, t0=1, c0=c_0)
+        params = fmodel.make_params(cx=c_0, a=1, t0=0, c0=c_0)
         params['c0'].vary = False
         params['a'].min=0
+        # params['cx'].max=10e5
+        # params['cx'].min=c_0
+        params['t0'].vary=False
 
         try:
             if not pi:
@@ -108,15 +115,7 @@ class HM_model:
             print(e)
             return None
         
-        # print(result.eval_uncertainty(result.params,sigma=1))
-        # print()
-        # print(result.fit_report())
-        # print(result.params['cx'].stderr)
-        # print(type(result.params['cx']))
-        # print(result.ci_report())
-        # print()
 
-        # print(result.summary())
         
         try:
             return {'parameters_best_fit':{'cx':result.params['cx'].value,
@@ -209,6 +208,31 @@ class HM_model:
         aMC = a + sigma_a*np.random.normal(size=n)
         t0MC = t0 + sigma_t0*np.random.normal(size=n)
 
+<<<<<<< HEAD
+=======
+        mcmc = MCMC()
+        sampler, flat_samples = mcmc.run_mcmc(t=self.timestamp.values[deadband:cutoff], 
+                                              y=self.co2.values[deadband:cutoff], 
+                                              yerr=0.5, # measurement error 
+                                              c0=C_0, 
+                                              cx_bf=cx, 
+                                              alpha_bf=a,
+                                              nwalkers=100, nsteps=1000)
+        
+        dcdt_mcmc = self.dcdt(t_0=0, C_0=C_0, 
+                              alpha=flat_samples[:,0], C_x=flat_samples[:,1], 
+                              t=self.timestamp[deadband:cutoff].mean())
+
+        dcdt_quantiles = np.quantile(dcdt_mcmc, [0.16, 0.5, 0.84])
+        dcdt_mcmc_filter = dcdt_mcmc[(dcdt_mcmc > dcdt_quantiles[0]) & (dcdt_mcmc < dcdt_quantiles[2])]
+
+        # print(len(dcdt_mcmc_filter))
+        random_index = np.random.choice(len(dcdt_mcmc_filter), n)
+        dcdt_samples = dcdt_mcmc_filter[random_index]
+
+        dc_dtMC = dcdt_samples
+
+>>>>>>> dabb4f2e65f5f933919eb08d8b4669a111784418
         temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
         pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
         humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
@@ -223,7 +247,7 @@ class HM_model:
         
         
         # dc_dt = (self.dcdt(t0, C_0, a, cx, self.timestamp)).mean()
-        dc_dtMC = self.dcdt(t0MC, C_0, aMC, cxMC, self.timestamp[deadband:cutoff].mean())
+        # dc_dtMC = self.dcdt(t0MC, C_0, aMC, cxMC, self.timestamp[deadband:cutoff].mean())
         
         soilgasflux_CO2MC = self.gas_eeflux_v2(volume=self.volume, 
                                              area=self.area, 
