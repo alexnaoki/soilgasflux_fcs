@@ -209,9 +209,6 @@ class HM_model:
         aMC = a + sigma_a*np.random.normal(size=n)
         t0MC = t0 + sigma_t0*np.random.normal(size=n)
 
-        
-
-
         temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
         pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
         humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
