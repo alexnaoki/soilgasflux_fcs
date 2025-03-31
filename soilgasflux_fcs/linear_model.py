@@ -83,6 +83,14 @@ class LINEAR_model:
             print(e)
             result = None
 
+        # print()
+        # print('Linear model')
+        # print(f"{result.params['dcdt'].value} +- {result.params['dcdt'].stderr}")
+        # print(f"{result.best_values['dcdt']}")
+        # print(f"{result.params['c0'].value} +- {result.params['c0'].stderr}")
+        # print()
+        
+
         try:
             return {'parameters_best_fit':{'dcdt':result.best_values['dcdt'], 
                                            'c0':result.best_values['c0']}, 

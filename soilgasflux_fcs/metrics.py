@@ -43,6 +43,20 @@ def rmse(y, yhat):
         rmse = np.sqrt(np.sum(resid**2)/n)
     return rmse
 
+def r2(y, yhat):
+    '''
+    Inputs:
+    y: observed values
+    yhat: predicted values
+    '''
+    n = len(y)
+    resid = y - yhat
+    ss_res = np.sum(resid**2)
+    ss_tot = np.sum((y - np.mean(y))**2)
+    r2 = 1 - (ss_res/ss_tot)
+    return r2
+
+
 def confidence_interval(x, xd, yd, yp, p, conf=0.95):
     '''
     Inputs:

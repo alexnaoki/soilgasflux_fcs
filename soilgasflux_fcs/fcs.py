@@ -5,7 +5,7 @@ import json
 import matplotlib.pyplot as plt
 from .hm_model import HM_model
 from .linear_model import LINEAR_model
-from .metrics import calculate_AIC, rmse
+from .metrics import calculate_AIC, rmse, r2
 from .models import hm_model, linear_model, hm_model_dcdt
 
 class FCS:
@@ -27,8 +27,10 @@ class FCS:
         metrics = {'aic': None, 'rmse': None}
         aic = calculate_AIC(y=y_raw, yhat=y_model, p=5)
         rmse_ = rmse(y=y_raw, yhat=y_model)
+        r2_ = r2(y=y_raw, yhat=y_model)
         metrics['aic'] = aic
         metrics['rmse'] = rmse_
+        metrics['r2'] = r2_
         return metrics
 
 
@@ -42,7 +44,8 @@ class FCS:
             'deadband': x_deadband, 'cutoff': y_cutoff,
             'dcdt(HM)': zeros_like.copy(), 'dcdt(linear)': zeros_like.copy(),
             'AIC(HM)': zeros_like.copy(), 'AIC(linear)': zeros_like.copy(),
-            'RMSE(HM)': zeros_like.copy(), 'RMSE(linear)': zeros_like.copy()
+            'RMSE(HM)': zeros_like.copy(), 'RMSE(linear)': zeros_like.copy(),
+            'R2(HM)': zeros_like.copy(), 'R2(linear)': zeros_like.copy()
                    }
         
 
@@ -70,6 +73,7 @@ class FCS:
                     results[f'{n}']['dcdt(HM)'][n_cutoff,n_deadband] = dc_dt
                     results[f'{n}']['AIC(HM)'][n_cutoff,n_deadband] = metrics['aic']
                     results[f'{n}']['RMSE(HM)'][n_cutoff,n_deadband] = metrics['rmse']
+                    results[f'{n}']['R2(HM)'][n_cutoff,n_deadband] = metrics['r2']
                     # print(metrics)
                 except Exception as e:
                     print('ERROR HM ####')
@@ -89,6 +93,7 @@ class FCS:
                     results[f'{n}']['dcdt(linear)'][n_cutoff,n_deadband] = dc_dt
                     results[f'{n}']['AIC(linear)'][n_cutoff,n_deadband] = metrics['aic']
                     results[f'{n}']['RMSE(linear)'][n_cutoff,n_deadband] = metrics['rmse']
+                    results[f'{n}']['R2(linear)'][n_cutoff,n_deadband] = metrics['r2']
                 except Exception as e:
                     print('ERROR LINEAR ####')
                     print(e)
@@ -111,7 +116,9 @@ class FCS:
             'AIC(HM)': np.full(shape_3d, np.nan),
             'AIC(linear)': np.full(shape_3d, np.nan),
             'RMSE(HM)': np.full(shape_3d, np.nan),
-            'RMSE(linear)': np.full(shape_3d, np.nan)
+            'RMSE(linear)': np.full(shape_3d, np.nan),
+            'R2(HM)': np.full(shape_3d, np.nan),
+            'R2(linear)': np.full(shape_3d, np.nan)
         }}
         
         for n_deadband, deadband in enumerate(self.deadband_options):
@@ -160,6 +167,11 @@ class FCS:
                     else:
                         results[f'{n}']['RMSE(HM)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['rmse'])
 
+                    if isinstance(metrics['r2'], np.ndarray) and len(metrics['r2']) == n_MC:
+                        results[f'{n}']['R2(HM)'][n_cutoff, n_deadband, :] = metrics['r2']
+                    else:
+                        results[f'{n}']['R2(HM)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['r2'])
+
                 except Exception as e:
                     print('ERROR HM ####')
                     print(e)
@@ -195,6 +207,10 @@ class FCS:
                         results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = metrics['rmse']
                     else:
                         results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['rmse'])
+                    if isinstance(metrics['r2'], np.ndarray) and len(metrics['r2']) == n_MC:
+                        results[f'{n}']['R2(linear)'][n_cutoff, n_deadband, :] = metrics['r2']
+                    else:
+                        results[f'{n}']['R2(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['r2'])
                     
                 
                 except Exception as e:
