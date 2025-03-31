@@ -56,6 +56,7 @@ class Initializer:
             df['disturbance_intensity'] = config['disturbance_intensity']
             df['disturbance_starting_point'] = config['disturbance_starting_point']
             df['add_noise'] = config['add_noise']
+            df['curvature'] = config['curvature']
 
             dfs.append(df)
         df_data = pd.concat(dfs)

@@ -40,10 +40,11 @@ class Synthetic:
             expected_results[t]['humidity'] = None
             expected_results[t]['area'] = np.pi*20**2/4
             expected_results[t]['volume'] = np.pi*20**2*20/4
+            expected_results[t]['curvature'] = None
             
 
             # print('time',t)
-            alpha, cs, c0, deadband, d_intensity, d_startpoint, add_noise, pressure, temperature, humidity = self.find_rawData_config(datetime=t)
+            alpha, cs, c0, deadband, d_intensity, d_startpoint, add_noise, pressure, temperature, humidity, curvature = self.find_rawData_config(datetime=t)
             # print(alpha, cs, c0, deadband, d_intensity, d_startpoint, add_noise)
             # print(self.ds.cutoff.values)
 
@@ -71,6 +72,7 @@ class Synthetic:
             expected_results[t]['pressure'] = pressure
             expected_results[t]['temperature'] = temperature
             expected_results[t]['humidity'] = humidity
+            expected_results[t]['curvature'] = curvature
 
             # print()
 
@@ -89,6 +91,7 @@ class Synthetic:
                 'humidity': (['time'], np.array([expected_results[t]['humidity'] for t in self.ds.time.values])),
                 'area': (['time'], np.array([expected_results[t]['area'] for t in self.ds.time.values])),
                 'volume': (['time'], np.array([expected_results[t]['volume'] for t in self.ds.time.values])),
+                'curvature': (['time'], np.array([expected_results[t]['curvature'] for t in self.ds.time.values])),	
             },
             coords={
                 'time': self.ds.time,
@@ -112,9 +115,9 @@ class Synthetic:
         # print(self.df.loc[self.df['datetime'] == datetime])
         
         rowFirst = self.df.loc[self.df['id_datetime']==datetime].head(1)
-        # print(rowFirst)
+        print(rowFirst)
 
-        return rowFirst['alpha'].values[0], rowFirst['c_s'].values[0], rowFirst['c_c0'].values[0], rowFirst['deadband'].values[0], rowFirst['disturbance_intensity'].values[0], rowFirst['disturbance_starting_point'].values[0], rowFirst['add_noise'].values[0],rowFirst['bmp_pressure'].values[0], rowFirst['bmp_temperature'].values[0], rowFirst['si_humidity'].values[0]
+        return rowFirst['alpha'].values[0], rowFirst['c_s'].values[0], rowFirst['c_c0'].values[0], rowFirst['deadband'].values[0], rowFirst['disturbance_intensity'].values[0], rowFirst['disturbance_starting_point'].values[0], rowFirst['add_noise'].values[0],rowFirst['bmp_pressure'].values[0], rowFirst['bmp_temperature'].values[0], rowFirst['si_humidity'].values[0], rowFirst['curvature'].values[0]
 
 
 
