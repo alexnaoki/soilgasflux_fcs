@@ -75,7 +75,9 @@ class Multiprocessor:
                     'AIC(HM)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['AIC(HM)'] for t in times])),
                     'AIC(linear)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['AIC(linear)'] for t in times])),
                     'RMSE(HM)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['RMSE(HM)'] for t in times])),
-                    'RMSE(linear)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['RMSE(linear)'] for t in times]))
+                    'RMSE(linear)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['RMSE(linear)'] for t in times])),
+                    'R2(HM)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['R2(HM)'] for t in times])),
+                    'R2(linear)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['R2(linear)'] for t in times])),
                 },
                 coords={
                     'time': times,
@@ -124,7 +126,9 @@ class Multiprocessor:
                     'AIC(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['AIC(HM)'] for t in times], dtype=np.float32)),
                     'AIC(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['AIC(linear)'] for t in times], dtype=np.float32)),
                     'RMSE(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(HM)'] for t in times], dtype=np.float32)),
-                    'RMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(linear)'] for t in times], dtype=np.float32))
+                    'RMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(linear)'] for t in times], dtype=np.float32)),
+                    'R2(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['R2(HM)'] for t in times], dtype=np.float32)),
+                    'R2(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['R2(linear)'] for t in times], dtype=np.float32)),
                 },
                 coords={
                     'time': times,
