@@ -46,7 +46,7 @@ class MCMC:
         sampler.run_mcmc(pos, nsteps)
 
         # samples = sampler.get_chain()
-        flat_samples = sampler.get_chain(flat=True, discard=int(nsteps*0.3), thin=15) # ()
+        flat_samples = sampler.get_chain(flat=True, discard=int(nsteps*0.4), thin=15) # ()
 
         return sampler, flat_samples
 
