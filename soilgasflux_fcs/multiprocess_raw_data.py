@@ -78,6 +78,8 @@ class Multiprocessor:
                     'RMSE(linear)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['RMSE(linear)'] for t in times])),
                     'R2(HM)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['R2(HM)'] for t in times])),
                     'R2(linear)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['R2(linear)'] for t in times])),
+                    'nRMSE(HM)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['nRMSE(HM)'] for t in times])),
+                    'nRMSE(linear)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['nRMSE(linear)'] for t in times])),
                 },
                 coords={
                     'time': times,
@@ -129,6 +131,8 @@ class Multiprocessor:
                     'RMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(linear)'] for t in times], dtype=np.float32)),
                     'R2(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['R2(HM)'] for t in times], dtype=np.float32)),
                     'R2(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['R2(linear)'] for t in times], dtype=np.float32)),
+                    'nRMSE(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['nRMSE(HM)'] for t in times], dtype=np.float32)),
+                    'nRMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['nRMSE(linear)'] for t in times], dtype=np.float32)),
                 },
                 coords={
                     'time': times,

@@ -43,6 +43,27 @@ def rmse(y, yhat):
         rmse = np.sqrt(np.sum(resid**2)/n)
     return rmse
 
+def normalized_rmse(y, yhat):
+    '''
+    Inputs:
+    y: observed values
+    yhat: predicted values
+    '''
+    n = len(y)
+    resid = y - yhat
+    try:
+        rmse = np.sqrt(np.sum(resid**2, axis=1)/n)
+    except:
+        rmse = np.sqrt(np.sum(resid**2)/n)
+    min_y = np.min(y)
+    max_y = np.max(y)
+    range_y = max_y - min_y
+    try:
+        nrmse = rmse / range_y
+    except:
+        nrmse = rmse / (max_y - min_y)
+    return nrmse
+
 def r2(y, yhat):
     '''
     Inputs:

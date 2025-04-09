@@ -28,9 +28,11 @@ class FCS:
         aic = calculate_AIC(y=y_raw, yhat=y_model, p=5)
         rmse_ = rmse(y=y_raw, yhat=y_model)
         r2_ = r2(y=y_raw, yhat=y_model)
+        nrmse = normalized_rmse(y=y_raw, yhat=y_model)
         metrics['aic'] = aic
         metrics['rmse'] = rmse_
         metrics['r2'] = r2_
+        metrics['nrmse'] = nrmse
         return metrics
 
 
@@ -45,7 +47,8 @@ class FCS:
             'dcdt(HM)': zeros_like.copy(), 'dcdt(linear)': zeros_like.copy(),
             'AIC(HM)': zeros_like.copy(), 'AIC(linear)': zeros_like.copy(),
             'RMSE(HM)': zeros_like.copy(), 'RMSE(linear)': zeros_like.copy(),
-            'R2(HM)': zeros_like.copy(), 'R2(linear)': zeros_like.copy()
+            'R2(HM)': zeros_like.copy(), 'R2(linear)': zeros_like.copy(),
+            'nRMSE(HM)': zeros_like.copy(), 'nRMSE(linear)': zeros_like.copy()
                    }
         
 
@@ -74,6 +77,7 @@ class FCS:
                     results[f'{n}']['AIC(HM)'][n_cutoff,n_deadband] = metrics['aic']
                     results[f'{n}']['RMSE(HM)'][n_cutoff,n_deadband] = metrics['rmse']
                     results[f'{n}']['R2(HM)'][n_cutoff,n_deadband] = metrics['r2']
+                    results[f'{n}']['nRMSE(HM)'][n_cutoff,n_deadband] = metrics['nrmse']
                     # print(metrics)
                 except Exception as e:
                     print('ERROR HM ####')
@@ -94,6 +98,7 @@ class FCS:
                     results[f'{n}']['AIC(linear)'][n_cutoff,n_deadband] = metrics['aic']
                     results[f'{n}']['RMSE(linear)'][n_cutoff,n_deadband] = metrics['rmse']
                     results[f'{n}']['R2(linear)'][n_cutoff,n_deadband] = metrics['r2']
+                    results[f'{n}']['nRMSE(linear)'][n_cutoff,n_deadband] = metrics['nrmse']
                 except Exception as e:
                     print('ERROR LINEAR ####')
                     print(e)
@@ -118,7 +123,9 @@ class FCS:
             'RMSE(HM)': np.full(shape_3d, np.nan),
             'RMSE(linear)': np.full(shape_3d, np.nan),
             'R2(HM)': np.full(shape_3d, np.nan),
-            'R2(linear)': np.full(shape_3d, np.nan)
+            'R2(linear)': np.full(shape_3d, np.nan),
+            'nRMSE(HM)': np.full(shape_3d, np.nan),
+            'nRMSE(linear)': np.full(shape_3d, np.nan)
         }}
         
         for n_deadband, deadband in enumerate(self.deadband_options):
@@ -172,6 +179,11 @@ class FCS:
                     else:
                         results[f'{n}']['R2(HM)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['r2'])
 
+                    if isinstance(metrics['nrmse'], np.ndarray) and len(metrics['nrmse']) == n_MC:
+                        results[f'{n}']['nRMSE(HM)'][n_cutoff, n_deadband, :] = metrics['nrmse']
+                    else:
+                        results[f'{n}']['nRMSE(HM)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['nrmse'])
+
                 except Exception as e:
                     print('ERROR HM ####')
                     print(e)
@@ -211,6 +223,10 @@ class FCS:
                         results[f'{n}']['R2(linear)'][n_cutoff, n_deadband, :] = metrics['r2']
                     else:
                         results[f'{n}']['R2(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['r2'])
+                    if isinstance(metrics['nrmse'], np.ndarray) and len(metrics['nrmse']) == n_MC:
+                        results[f'{n}']['nRMSE(linear)'][n_cutoff, n_deadband, :] = metrics['nrmse']
+                    else:
+                        results[f'{n}']['nRMSE(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['nrmse'])
                     
                 
                 except Exception as e:
