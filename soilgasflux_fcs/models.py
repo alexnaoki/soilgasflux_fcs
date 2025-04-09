@@ -48,3 +48,37 @@ def dcdt_from_soilgasflux(volume, area, p0, w0, t0, soilgasflux):
 
     dcdt = soilgasflux * R * area * (t0+273.15)/(10*volume*p0*(1-w0/1000))
     return dcdt
+
+def soilgasflux(volume, area, p0, w0, t0, dcdt):
+    '''
+    volume [cm-3]
+    area [cm-2]
+    p0 [kPa]
+    w0 [mmol mol-1]
+    t0 [Celsius]
+    R = 8.314 [J⋅K−1⋅mol−1]
+    dcdt: [ppm s-1]
+
+    soilgasflux [umol m-2 s-1]
+    '''
+    R = 8.31446261815324 #J⋅K−1⋅mol−1
+
+    soilgasflux = (10*volume*p0*(1-w0/1000))*dcdt/(R*area*(t0+273.15))
+    return soilgasflux
+
+def soilgasflux_to_dcdt(volume, area, p0, w0, t0, soilgasflux):
+    '''
+    volume [cm-3]
+    area [cm-2]
+    p0 [kPa]
+    w0 [mmol mol-1]
+    t0 [Celsius]
+    R = 8.314 [J⋅K−1⋅mol−1]
+    soilgasflux [umol m-2 s-1]
+
+    dcdt: [ppm s-1]
+    '''
+    R = 8.31446261815324 #J⋅K−1⋅mol−1
+
+    dcdt = soilgasflux * R * area * (t0+273.15)/(10*volume*p0*(1-w0/1000))
+    return dcdt
