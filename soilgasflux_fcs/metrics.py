@@ -55,8 +55,8 @@ def normalized_rmse(y, yhat):
         rmse = np.sqrt(np.sum(resid**2, axis=1)/n)
     except:
         rmse = np.sqrt(np.sum(resid**2)/n)
-    min_y = np.min(y)
-    max_y = np.max(y)
+    min_y = np.nanmin(y)
+    max_y = np.nanmax(y)
     range_y = max_y - min_y
     try:
         nrmse = rmse / range_y

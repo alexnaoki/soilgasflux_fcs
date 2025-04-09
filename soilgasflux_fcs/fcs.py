@@ -5,7 +5,7 @@ import json
 import matplotlib.pyplot as plt
 from .hm_model import HM_model
 from .linear_model import LINEAR_model
-from .metrics import calculate_AIC, rmse, r2
+from .metrics import calculate_AIC, rmse, r2, normalized_rmse
 from .models import hm_model, linear_model, hm_model_dcdt
 
 class FCS:
