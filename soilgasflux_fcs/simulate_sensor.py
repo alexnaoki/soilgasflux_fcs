@@ -62,9 +62,12 @@ class Simulate_Sensor:
                                                           pressure=self.pressure)
         gas_mass[0] = inital_massConcentration*self.gasAnalyzer_volume
 
+        measured_concentration = np.zeros((self.total_time, 1))*np.nan
+
         self.elements['gas_analyzer'] = {'volume': [gasAnalyzer_volume], 
                                          'concentration':[self.c0],
-                                         'gas_mass': gas_mass}
+                                         'gas_mass': gas_mass,
+                                         'measured_concentration': measured_concentration}
         # self.elements['volumes'].append({'gas_analyzer': [gasAnalyzer_volume]})
         # self.elements['concentrations'].append({'gas_analyzer': [self.c0]})
 
@@ -166,14 +169,6 @@ class Simulate_Sensor:
             total_volume += self.elements[element]['volume'][0]
         print('Total volume:', total_volume, 'cm3')
 
-        gasDensity_sourceRate = self._idealgaslaw_convertion_to_massConcentration(ppm=1, 
-                                                              molar_mass=44.01, 
-                                                              temperature=20, 
-                                                              pressure=101325) # g/cm3
-        gasMass_sourceRate = gasDensity_sourceRate * total_volume
-        print('Gas density source rate:\t', gasDensity_sourceRate, 'g/cm3')
-        print('gas mass source rate:\t', gasMass_sourceRate, 'g/s')
-        print()
 
         # print('gas mass before loop',self.elements['chamber']['gas_mass'][0,:], 'g')
 
@@ -186,32 +181,47 @@ class Simulate_Sensor:
                 print('End of simulation')
                 break
                 # pass
+            gasDensity_sourceRate = self._idealgaslaw_convertion_to_massConcentration(ppm=source_ppm[t], 
+                                                                molar_mass=44.01, 
+                                                                temperature=20, 
+                                                                pressure=101325) # g/cm3
+            gasMass_sourceRate = gasDensity_sourceRate * total_volume
+            print('Gas density source rate:\t', gasDensity_sourceRate, 'g/cm3')
+            print('gas mass source rate:\t', gasMass_sourceRate, 'g/s')
+            print()
                 
             print('Time:\t',t)
 
-            # Measure gas
+            ##### Measure gas #####
             gas_analyzer_mass = self.elements['gas_analyzer']['gas_mass'][t]
             gas_analyzer_volume = self.elements['gas_analyzer']['volume'][0]
             gas_analyzer_concentration = self._idealgaslaw_convertion_to_ppm(gas_analyzer_mass/gas_analyzer_volume,
                                                                            molar_mass=44.01, 
                                                                            temperature=self.temperature, 
                                                                            pressure=self.pressure)
+            gas_analyzer_concentration_withRandomPrecision = gas_analyzer_concentration + np.random.normal(0, self.sensor_precision)
+            self.elements['gas_analyzer']['measured_concentration'][t] = gas_analyzer_concentration_withRandomPrecision
+
             print('Gas analyzer mass:', gas_analyzer_mass, 'g')
             print('Gas analyzer volume:', gas_analyzer_volume, 'cm3')
             print('Gas analyzer concentration:', gas_analyzer_concentration, 'ppm')
+
             
+
+
+            ########################
             
             # Chamber input source
             gasMass_source = gasMass_sourceRate * self.dt
-            print('gas mass source:', gasMass_source, 'g')
+            # print('gas mass source:', gasMass_source, 'g')
             # self.elements['chamber']['gas_mass'][t,:] = self.elements['chamber']['gas_mass'][t-1,:]
             self.elements['chamber']['gas_mass'][t,0] += gasMass_source
             
             print('Initail gas mass after input')
-            print(self.elements['chamber']['gas_mass'][t,:], 'g')
+
             # Chamber diffusion
-            if True:
-                stocastic_diffusion = np.random.uniform(low=0, high=1, size=(self.chamber_nodes-1))
+            if with_diffusion:
+                stocastic_diffusion = np.random.uniform(low=0.5, high=1, size=(self.chamber_nodes-1))
                 for n in range(1,self.chamber_nodes,1):
                     proportion_diffusion = stocastic_diffusion[n-1]
                     node_diff_split = abs(self.elements['chamber']['gas_mass'][t, n-1] - self.elements['chamber']['gas_mass'][t, n])/2
@@ -322,19 +332,18 @@ class Simulate_Sensor:
                     
                     # Calculate gas mass to be pumped (proportional to volume)
                     mass_to_pump = self.elements['chamber']['gas_mass'][t, n] * fraction_pumped
-                    # print('node mass', mass_to_pump, self.elements['chamber']['gas_mass'][t])
 
                     mass_pumped_from_nodes[n] = mass_to_pump
 
                     self.elements['chamber']['gas_mass'][t+1, n] -= mass_to_pump
                 
                 # print(volume_pumped_from_nodes)
-                print(mass_pumped_from_nodes.sum())
-                print('mass nodes pumped',mass_pumped_from_nodes)
+                # print(mass_pumped_from_nodes.sum())
+                # print('mass nodes pumped',mass_pumped_from_nodes)
                 # pumped_gasmass += np.nansum(mass_pumped_from_nodes)
                 pumped_gasmass += mass_pumped_from_nodes.sum()
                 pumped_volume += np.nansum(volume_pumped_from_nodes)
-                print('Pumped gas mass:', pumped_gasmass, 'g')
+                # print('Pumped gas mass:', pumped_gasmass, 'g')
 
                 print()
             
@@ -355,7 +364,7 @@ class Simulate_Sensor:
             volume_moved_from_nodes = np.zeros(self.chamber_nodes)
             # print('before moved nodes', self.elements['chamber']['gas_mass'][t+1, :], 'g')
             for n in range(self.chamber_nodes-1, -1, -1):
-                print('moved:', moved_volume)
+                # print('moved:', moved_volume)
                 # print(chamber_nodes_volume)
                 if moved_volume >= need_to_move:
                     break
@@ -370,7 +379,7 @@ class Simulate_Sensor:
                 # print(fraction_moved)
 
                 # Calculate gas mass to be moved (proportional to volume)
-                print('adding',self.elements['chamber']['gas_mass'][t+1, n]*fraction_moved, 'g')
+                # print('adding',self.elements['chamber']['gas_mass'][t+1, n]*fraction_moved, 'g')
                 mass_to_move += self.elements['chamber']['gas_mass'][t+1, n] * fraction_moved
 
                 self.elements['chamber']['gas_mass'][t+1, n] -= self.elements['chamber']['gas_mass'][t+1, n] * fraction_moved
@@ -388,9 +397,9 @@ class Simulate_Sensor:
             for parts in self.elements:
                 if parts == 'chamber':
                     continue
-                print(self.elements[parts]['gas_mass'][t+1], 'g')
+                # print(self.elements[parts]['gas_mass'][t+1], 'g')
                 self.elements[parts]['gas_mass'][t+1] += moved_gasDensity*self.elements[parts]['volume'][0]
-                print(self.elements[parts]['gas_mass'][t+1], 'g (new)')
+                # print(self.elements[parts]['gas_mass'][t+1], 'g (new)')
                 
             # print('chamber gas mass before moving', self.elements['chamber']['gas_mass'][t+1, :], 'g')
             self.elements['chamber']['gas_mass'][t+1, :] += moved_gasDensity*volume_pumped_from_nodes
@@ -399,16 +408,16 @@ class Simulate_Sensor:
             ## Second move ##
             # print((self.elements['chamber']['volume'][0]/self.chamber_nodes-volume_moved_from_nodes))
             gasMass_concentration_to_move = self.elements['chamber']['gas_mass'][t+1, :]/(self.elements['chamber']['volume'][0]/self.chamber_nodes-volume_moved_from_nodes)
-            print('concentration to move',gasMass_concentration_to_move)
+            # print('concentration to move',gasMass_concentration_to_move)
 
             # print(volume_moved_from_nodes)
             # print(self.elements['chamber']['volume'][0]/self.chamber_nodes-volume_moved_from_nodes)
 
             # initial state of chamber volume nodes... needs to update in this loop
             chamberMove_nodes_volume = self.elements['chamber']['volume'][0]/self.chamber_nodes-volume_moved_from_nodes
-            print(chamberMove_nodes_volume)
+            # print(chamberMove_nodes_volume)
             for n in range(self.chamber_nodes-1,-1,-1):
-                print()
+                # print()
                 # if the chamber already has the right amount of gas, skip
                 if chamberMove_nodes_volume[n] == self.elements['chamber']['volume'][0]/self.chamber_nodes:
                     continue
@@ -423,7 +432,7 @@ class Simulate_Sensor:
                 # go through the nodes before the current node to move gas mass/volume to the current until it is full
                 n_1 = n - 1
                 while chamberMove_nodes_volume[n] < self.elements['chamber']['volume'][0]/self.chamber_nodes:
-                    print(n_1)
+                    # print(n_1)
                     node_n_volume_needed = self.elements['chamber']['volume'][0]/self.chamber_nodes-chamberMove_nodes_volume[n]
 
                     if chamberMove_nodes_volume[n] == self.elements['chamber']['volume'][0]/self.chamber_nodes:
@@ -455,10 +464,10 @@ class Simulate_Sensor:
 
 
             ### Return volume and mass to the chamber ###
-            print('chamber node volume', chamberMove_nodes_volume)
-            print()
+            # print('chamber node volume', chamberMove_nodes_volume)
+            # print()
             volume_to_add_from_pumped = self.elements['chamber']['volume'][0]/self.chamber_nodes-chamberMove_nodes_volume
-            print('volume to add from pumped', volume_to_add_from_pumped)
+            # print('volume to add from pumped', volume_to_add_from_pumped)
             # for n in range(self.chamber_nodes):
             self.elements['chamber']['gas_mass'][t+1,n] += pumped_gasDensity_backtoChamber*volume_to_add_from_pumped[n]
 
@@ -469,7 +478,7 @@ class Simulate_Sensor:
 
             print()
 
-        fig, ax =plt.subplots(2,3, figsize=(10, 6))
+        fig, ax =plt.subplots(2,3, figsize=(10, 6), dpi=300)
         for t in self.time:
             # print(t/self.time)
             ax[0,0].plot(self.elements['chamber']['gas_mass'][t,:], alpha=t/self.time.max())
@@ -497,6 +506,22 @@ class Simulate_Sensor:
             # if cha
             ax[0,2].plot(self.elements[parts]['gas_mass'][:].sum(axis=1)/self.elements[parts]['volume'][0], label=parts)
             ax[0,2].legend()
+
+            ax[1,2].plot(self._idealgaslaw_convertion_to_ppm(mass_concentration=self.elements[parts]['gas_mass'][:].sum(axis=1)/self.elements[parts]['volume'][0],
+                                                             molar_mass=44.01, 
+                                                          temperature=self.temperature, 
+                                                          pressure=self.pressure), label=parts)
+        
+        ax[1,2].plot(self.elements['gas_analyzer']['measured_concentration'][:], label='gas_analyzer')
+
+        ax[1,2].legend()
+
+        ax[1,1].scatter(self.time,self.elements['gas_analyzer']['measured_concentration'][:], label='gas_analyzer', s=2, color='k')
+
+        # ax[1,1]
+        ax[1,1].set_xlabel('Time [s]')
+        ax[1,1].set_ylabel('Concentration [ppm]')
+        fig.tight_layout()
 
 
 
