@@ -152,19 +152,7 @@ class Simulate_Sensor:
 
     
 
-    def run_simulation(self):
-        # initial condition
-        #build elements
-            # chamber
-            # gas analyzer
-            # internal pump
-        # main loop
-            # gas analyzer measure
-            # add gas from soil to chamber
-            # mix inside chamber
-            # pump gas out of chamber to the gas analyzer
-            # pump gas from gas analyzer to the chamber
-
+    def run_simulation(self, source_ppm, with_diffusion=True, with_advection=True):
         print('')
         for element in self.elements:
             print(f'Element: {element}')
@@ -235,6 +223,49 @@ class Simulate_Sensor:
                         self.elements['chamber']['gas_mass'][t, n-1] += node_diff_split*proportion_diffusion
                         self.elements['chamber']['gas_mass'][t, n] -= node_diff_split*proportion_diffusion
             
+            # Chamber advective mixing (fan)
+            
+            fan_flow = 4000 # cm3/s
+            fan_dimension =  4 # cm
+            fan_area = np.pi*(fan_dimension/2)**2 # cm2
+            fan_AreaRatio = fan_area / self.elements['chamber']['area'][0]
+            fan_velocity = fan_flow / fan_area # cm/s
+
+            chamber_height = self.elements['chamber']['volume'][0] / self.elements['chamber']['area'][0] # cm
+            fan_efficiency = 0.5
+
+            fan_influence = fan_flow/self.volume*fan_efficiency
+            print('fan_influence:\t',fan_influence)
+
+            if with_advection:
+                # move gas from upper nodes to lower nodes
+                # volume_advective
+                chamber_nodes_volume = np.ones(self.chamber_nodes)*self.elements['chamber']['volume'][0]/self.chamber_nodes
+                # print(chamber_nodes_volume)
+                influenced_volume = self.elements['chamber']['volume'][0]*fan_influence
+                for n in range(self.chamber_nodes-1, 0, -1):
+                    influenced_nodes = np.zeros(self.chamber_nodes)
+                    number_of_influenced_nodes = len(np.where(np.cumsum(chamber_nodes_volume)-influenced_volume < 0)[0])
+                    
+                    stocastic_advection = np.random.uniform(low=0.999, high=1, size=(number_of_influenced_nodes))
+                    influenced_nodes[(n-number_of_influenced_nodes+1):n+1] = 1
+                    # print(influenced_nodes)
+
+                    if influenced_nodes.sum() == 0:
+                        # print('No influenced nodes')
+                        break
+
+                    influenced_nodes_mass = self.elements['chamber']['gas_mass'][t][influenced_nodes==1]
+
+                    total_influenced_mass = np.nansum(influenced_nodes_mass)
+                    total_stocastic_advection = np.nansum(stocastic_advection)
+
+                    advection_mass = total_influenced_mass/total_stocastic_advection*stocastic_advection
+                    # print(advection_mass)
+                    self.elements['chamber']['gas_mass'][t][influenced_nodes==1] = advection_mass
+
+                
+
             # Pumping from chamber to gas analyzer
             pumped_volume = 0
             pumped_gasmass = 0
