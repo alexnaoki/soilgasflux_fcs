@@ -153,7 +153,44 @@ class Simulate_Sensor:
         ppm = (mass_concentration * R * (temperature + 273.15)) / (pressure * molar_mass) * 10e6 # ppm
         return ppm
 
-    
+    def response_time_signal(self, responseTime, responseType,samplingFrequency, start, end):
+        if responseType == 'linear':
+            response_signal = np.linspace(start, end, responseTime+1)
+            diff = np.diff(response_signal)
+            return response_signal[1:], diff
+        elif responseType == 'log':
+            t = np.linspace(0, responseTime, responseTime+1)
+            response_signal = start + (end-start) * np.log10(t+1)/np.log10(responseTime+1)
+            diff = np.diff(response_signal)
+            return response_signal[1:], diff
+        
+    def sensor_measurement(self, gasAnalyzer_data, time_data,responseTime, responseType, samplingFrequency, sensor_precision):
+        '''
+        '''
+        diff = np.diff(gasAnalyzer_data)
+        dcdt = np.concatenate([np.array([0]), diff])
+
+        signal_matrix = np.zeros((len(time_data), len(time_data)+responseTime))
+        for t in time_data:
+
+            if t == 0:
+                signal_matrix[t, 0:responseTime] = self.response_time_signal(responseTime=responseTime,
+                                                                            responseType=responseType,
+                                                                            samplingFrequency=samplingFrequency,
+                                                                            start=0, end=0)[1]
+            else:
+                signal_matrix[t, t:t+responseTime] = self.response_time_signal(responseTime=responseTime,
+                                                                            responseType=responseType,
+                                                                            samplingFrequency=samplingFrequency,
+                                                                            start=0, end=dcdt[t])[1]
+        print('signal_matrix',signal_matrix)
+        total_cumulative_signal_perStep = signal_matrix.sum(axis=0)[:time_data.max()+1]
+        gasAnalyzer_dataResponse = total_cumulative_signal_perStep.cumsum() + gasAnalyzer_data[0] + np.random.normal(0, sensor_precision, len(total_cumulative_signal_perStep))
+        # print('total cumulative signal step:', total_cumulative_signal_perStep)
+        # np.random.normal(0, self.sensor_precision)
+        return gasAnalyzer_dataResponse
+
+
 
     def run_simulation(self, source_ppm, with_diffusion=True, with_advection=True):
         print('')
@@ -199,8 +236,8 @@ class Simulate_Sensor:
                                                                            molar_mass=44.01, 
                                                                            temperature=self.temperature, 
                                                                            pressure=self.pressure)
-            gas_analyzer_concentration_withRandomPrecision = gas_analyzer_concentration + np.random.normal(0, self.sensor_precision)
-            self.elements['gas_analyzer']['measured_concentration'][t] = gas_analyzer_concentration_withRandomPrecision
+            # gas_analyzer_concentration_withRandomPrecision = gas_analyzer_concentration + np.random.normal(0, self.sensor_precision)
+            self.elements['gas_analyzer']['measured_concentration'][t] = gas_analyzer_concentration
 
             print('Gas analyzer mass:', gas_analyzer_mass, 'g')
             print('Gas analyzer volume:', gas_analyzer_volume, 'cm3')
@@ -257,7 +294,7 @@ class Simulate_Sensor:
                     influenced_nodes = np.zeros(self.chamber_nodes)
                     number_of_influenced_nodes = len(np.where(np.cumsum(chamber_nodes_volume)-influenced_volume < 0)[0])
                     
-                    stocastic_advection = np.random.uniform(low=0.999, high=1, size=(number_of_influenced_nodes))
+                    stocastic_advection = np.random.uniform(low=0.995, high=1, size=(number_of_influenced_nodes))
                     influenced_nodes[(n-number_of_influenced_nodes+1):n+1] = 1
                     # print(influenced_nodes)
 
@@ -488,7 +525,7 @@ class Simulate_Sensor:
         # print(gas_mass_system)
 
         chamber_gasMass = self.elements['chamber']['gas_mass'].sum(axis=1)+self.elements['gas_analyzer']['gas_mass'].reshape(-1)
-        print(chamber_gasMass)
+        # print(chamber_gasMass)
         # print
 
         ax[0,1].plot(self.time, chamber_gasMass, 'blue')
@@ -501,6 +538,15 @@ class Simulate_Sensor:
         #     ax[0,2].scatter(t, self.elements['chamber']['gas_mass'][t,:].sum(), s=2, 
         #                     # alpha=t/self.time.max() 
         #                     )
+        print(self.elements['gas_analyzer']['measured_concentration'][:])
+        sensor_response = self.sensor_measurement(gasAnalyzer_data=self.elements['gas_analyzer']['measured_concentration'][:].reshape(-1),
+                                                  time_data=self.time,
+                                                  responseTime=self.response_time,
+                                                  responseType='linear',
+                                                  samplingFrequency=1,
+                                                  sensor_precision=self.sensor_precision)
+        print(sensor_response)
+        ax[1,2].plot(self.time, sensor_response, label='gas_analyzer_response')
             
         for parts in self.elements:
             # if cha
@@ -522,7 +568,6 @@ class Simulate_Sensor:
         ax[1,1].set_xlabel('Time [s]')
         ax[1,1].set_ylabel('Concentration [ppm]')
         fig.tight_layout()
-
 
 
 
