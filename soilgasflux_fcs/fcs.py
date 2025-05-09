@@ -125,7 +125,8 @@ class FCS:
             'R2(HM)': np.full(shape_3d, np.nan),
             'R2(linear)': np.full(shape_3d, np.nan),
             'nRMSE(HM)': np.full(shape_3d, np.nan),
-            'nRMSE(linear)': np.full(shape_3d, np.nan)
+            'nRMSE(linear)': np.full(shape_3d, np.nan),
+            'logprob(HM)': np.full(shape_3d, np.nan),
         }}
         
         for n_deadband, deadband in enumerate(self.deadband_options):
@@ -136,7 +137,7 @@ class FCS:
                 try:
                     hm = HM_model(raw_data=self.df_data, metadata=metadata)
                     hm_results = hm.calculate_MC(deadband=deadband, cutoff=cutoff, n=n_MC)
-                    dc_dt, C_0, cx, a, t0, soilgasflux_CO2, deadband, cutoff = hm_results
+                    dc_dt, C_0, cx, a, t0, soilgasflux_CO2, deadband, cutoff, logprob = hm_results
                     
                     # Ensure arrays have proper shape
                     t = np.arange(deadband, cutoff, 1)
@@ -162,6 +163,8 @@ class FCS:
                     # print(dc_dt.shape)
 
                     results[f'{n}']['dcdt(HM)'][n_cutoff, n_deadband, :] = dc_dt
+
+                    results[f'{n}']['logprob(HM)'][n_cutoff, n_deadband, :] = logprob
                     
                     # For metrics, may need to handle differently depending on what run_metrics returns
                     if isinstance(metrics['aic'], np.ndarray) and len(metrics['aic']) == n_MC:
