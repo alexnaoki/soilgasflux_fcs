@@ -14,7 +14,7 @@ class Generator:
 
         self.datetime_creation = dt.datetime.now()
         self.selected = {
-            'alpha': [], 'cs': [], 't0': [], 'c0': []
+            'alpha': [], 'cs': [], 't0': [], 'c0': [],'curvature': []
         }
 
     def find_nearest(self, array, value):
@@ -183,7 +183,7 @@ class Generator:
         n = 5
         top_n_biggest_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argsort()[-n:][::-1]
         top_n_most_straight_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argsort()[:n]
-        top_n_inbetween_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argsort()[int(100/2):int(100/2)+n]
+        # top_n_inbetween_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argsort()[int(100/1.5):int(100/1.5)+n]
 
 
         # closest_values = target_dcdt
@@ -202,7 +202,8 @@ class Generator:
             ax[2].scatter(self.alpha[idx[1]], self.cs[idx[0]], color='blue', alpha=0.5, s=2)
             
             
-        for big_curve, straight_curve, inbetween_curve in zip(top_n_biggest_curve, top_n_most_straight_curve, top_n_inbetween_curve):
+        # for big_curve, straight_curve, inbetween_curve in zip(top_n_biggest_curve, top_n_most_straight_curve, top_n_inbetween_curve):
+        for big_curve, straight_curve in zip(top_n_biggest_curve, top_n_most_straight_curve):
             ax[0].plot(models.hm_model(t=np.arange(self.total_time),
                                     cx=self.cs[target_dcdt[1][big_curve][0]],
                                     a=self.alpha[target_dcdt[1][big_curve][1]],
@@ -212,36 +213,39 @@ class Generator:
                                     cx=self.cs[target_dcdt[1][straight_curve][0]],
                                     a=self.alpha[target_dcdt[1][straight_curve][1]],
                                     t0=0,
-                                    c0=self.c0), color='red')
-            ax[0].plot(models.hm_model(t=np.arange(self.total_time),
-                                    cx=self.cs[target_dcdt[1][inbetween_curve][0]],
-                                    a=self.alpha[target_dcdt[1][inbetween_curve][1]],
-                                    t0=0,
-                                    c0=self.c0), color='red', linestyle='--')
+                                    c0=self.c0), color='blue')
+            # ax[0].plot(models.hm_model(t=np.arange(self.total_time),
+            #                         cx=self.cs[target_dcdt[1][inbetween_curve][0]],
+            #                         a=self.alpha[target_dcdt[1][inbetween_curve][1]],
+            #                         t0=0,
+            #                         c0=self.c0), color='yellow', linestyle='--')
             
             self.selected['alpha'].append(self.alpha[target_dcdt[1][big_curve][1]])
             self.selected['cs'].append(self.cs[target_dcdt[1][big_curve][0]])
             self.selected['t0'].append(0)
             self.selected['c0'].append(self.c0)
+            self.selected['curvature'].append('big')
 
             self.selected['alpha'].append(self.alpha[target_dcdt[1][straight_curve][1]])
             self.selected['cs'].append(self.cs[target_dcdt[1][straight_curve][0]])
             self.selected['t0'].append(0)
             self.selected['c0'].append(self.c0)
+            self.selected['curvature'].append('straight')
 
-            self.selected['alpha'].append(self.alpha[target_dcdt[1][inbetween_curve][1]])
-            self.selected['cs'].append(self.cs[target_dcdt[1][inbetween_curve][0]])
-            self.selected['t0'].append(0)
-            self.selected['c0'].append(self.c0)
+            # self.selected['alpha'].append(self.alpha[target_dcdt[1][inbetween_curve][1]])
+            # self.selected['cs'].append(self.cs[target_dcdt[1][inbetween_curve][0]])
+            # self.selected['t0'].append(0)
+            # self.selected['c0'].append(self.c0)
+            # self.selected['curvature'].append('inbetween')
             
 
             
             ax[1].axvline(target_dcdt[0][big_curve], color='red', linestyle='-.')
             ax[1].axvline(target_dcdt[0][straight_curve], color='red')
-            ax[1].axvline(target_dcdt[0][inbetween_curve], color='red', linestyle='--')
+            # ax[1].axvline(target_dcdt[0][inbetween_curve], color='red', linestyle='--')
             ax[2].scatter(self.alpha[target_dcdt[1][big_curve][1]], self.cs[target_dcdt[1][big_curve][0]], color='red')
             ax[2].scatter(self.alpha[target_dcdt[1][straight_curve][1]], self.cs[target_dcdt[1][straight_curve][0]], color='red')
-            ax[2].scatter(self.alpha[target_dcdt[1][inbetween_curve][1]], self.cs[target_dcdt[1][inbetween_curve][0]], color='red', alpha=0.5)
+            # ax[2].scatter(self.alpha[target_dcdt[1][inbetween_curve][1]], self.cs[target_dcdt[1][inbetween_curve][0]], color='red', alpha=0.5)
         
         ax[1].hist(target_dcdt[0][:], bins=20, alpha=0.5, color='blue')
         
@@ -257,7 +261,7 @@ class Generator:
     def generate_base(self, alpha, cs, c0, t0,total_time, deadband, background_band,
                       unmixed_phase, unmixed_disturbance_intensity, 
                       mixed_phase_disturbance, disturbance_intensity, disturbance_starting_point,
-                      add_noise, noise_intensity):
+                      add_noise, noise_intensity,curvature, noise_type=None):
         config  = {}
         time = np.arange(total_time)
         final_values = np.zeros(total_time)
@@ -277,13 +281,19 @@ class Generator:
             final_values[:deadband] = interpolated+c0
             final_values[0] = c0
 
-        if add_noise:
+        if add_noise and noise_type==None:
             noise = np.random.normal(0, noise_intensity, total_time)
             final_values[:] += noise
+        elif add_noise and noise_type=='exp':
+            noise = np.exp(np.linspace(2, 0.0001, total_time))*np.random.normal(0, noise_intensity, total_time)
+            final_values[:] += noise
+        
+        
+
         
         # plt.scatter(time, background_values, color='blue', label='background', s=2)
         # plt.scatter(time, c_cx, color='red', label='c_cx', s=2)
-        plt.scatter(time, final_values, color='green', label='final', s=2)
+        # plt.scatter(time, final_values, color='green', label='final', s=2)
 
         config['alpha'] = alpha
         config['c_s'] = cs
@@ -300,6 +310,8 @@ class Generator:
         config['add_noise'] = add_noise
         config['noise_intensity'] = noise_intensity
         config['final_value'] = final_values
+        config['curvature'] = curvature
+        config['noise_type'] = noise_type
 
         return config
 
@@ -337,7 +349,7 @@ class Generator:
         
         return data
 
-    def create_selected(self, add_noise, noise_intensity,save_path):
+    def create_selected(self, add_noise, noise_intensity,noise_type,save_path):
         for i in range(len(self.selected['alpha'])):
             # print(i)
             # print(self.selected['alpha'][i], self.selected['cs'][i], self.selected['t0'][i], self.selected['c0'][i])
@@ -354,7 +366,208 @@ class Generator:
                                         disturbance_intensity=0, 
                                         disturbance_starting_point=0,
                                         add_noise=add_noise, 
-                                        noise_intensity=noise_intensity)
+                                        noise_intensity=noise_intensity,
+                                        curvature=self.selected['curvature'][i],
+                                        noise_type=noise_type
+                                        )
             # print(config)
             self.write_file(config, save_path=save_path)
             
+        
+    def cc_curve_plot2(self, list_selected_dcdt):
+        
+        fig, ax = plt.subplots(3,3, figsize=(10,6), dpi=300, height_ratios=[1,1,0.5])
+        levels_dcdt = np.arange(0, 2, 0.1)
+        g = ax[0,0].contourf(self.aa, self.cc, self.dcdt, cmap='viridis', levels=levels_dcdt)
+        cbar = fig.colorbar(g, ax=ax[0,0], label='$dCO_2/dt$ @ 180s')
+        
+        for i,selected_dcdt in enumerate(list_selected_dcdt):
+            target_dcdt = self.find_nearest_n(self.dcdt, selected_dcdt, n=100)
+            # print(target_dcdt)
+
+            # print((self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]]).argmax())
+
+            biggest_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argmax()
+            most_straight_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argmin()
+
+            n = 5
+            top_n_biggest_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argsort()[-n:][::-1]
+            top_n_most_straight_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argsort()[:n]
+            top_n_inbetween_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argsort()[int(100/1.3):int(100/1.3)+n]
+
+
+            # for dcdt, idx in zip(*target_dcdt):
+            #     # print(idx)
+            #     ax[1].plot(models.hm_model(t=np.arange(self.total_time), 
+            #                             cx=self.cs[idx[0]],
+            #                             a=self.alpha[idx[1]], 
+            #                             t0=0, 
+            #                             c0=self.c0), color='blue', alpha=0.02)
+                # ax[1].scatter(self.alpha[idx[1]], self.cs[idx[0]], color='blue', alpha=0.5, s=2)
+                
+                
+            for big_curve, straight_curve, inbetween_curve in zip(top_n_biggest_curve, top_n_most_straight_curve, top_n_inbetween_curve):
+                concentration_bigCurve = models.hm_model(t=np.arange(self.total_time),
+                                                         cx=self.cs[target_dcdt[1][big_curve][0]],
+                                                         a=self.alpha[target_dcdt[1][big_curve][1]],
+                                                         t0=0,
+                                                         c0=self.c0)
+                concentration_straightCurve = models.hm_model(t=np.arange(self.total_time),
+                                                            cx=self.cs[target_dcdt[1][straight_curve][0]],
+                                                            a=self.alpha[target_dcdt[1][straight_curve][1]],
+                                                            t0=0,
+                                                            c0=self.c0)
+                concentration_inbetweenCurve = models.hm_model(t=np.arange(self.total_time),
+                                                            cx=self.cs[target_dcdt[1][inbetween_curve][0]],
+                                                            a=self.alpha[target_dcdt[1][inbetween_curve][1]],
+                                                            t0=0,
+                                                            c0=self.c0)
+
+                dcdt_bigCurve = models.hm_model_dcdt(t0=0, c0=self.c0,
+                                                    a=self.alpha[target_dcdt[1][big_curve][1]], 
+                                                    cx=self.cs[target_dcdt[1][big_curve][0]], t=np.arange(self.total_time))
+                dcdt_straightCurve = models.hm_model_dcdt(t0=0, c0=self.c0,
+                                                    a=self.alpha[target_dcdt[1][straight_curve][1]],
+                                                    cx=self.cs[target_dcdt[1][straight_curve][0]], t=np.arange(self.total_time))
+                dcdt_inbetweenCurve = models.hm_model_dcdt(t0=0, c0=self.c0,
+                                                    a=self.alpha[target_dcdt[1][inbetween_curve][1]],
+                                                    cx=self.cs[target_dcdt[1][inbetween_curve][0]], t=np.arange(self.total_time))
+
+                gen_bigCurve = self.generate_base(alpha=self.alpha[target_dcdt[1][big_curve][1]],
+                                                cs=self.cs[target_dcdt[1][big_curve][0]], 
+                                                c0=self.c0, 
+                                                t0=0, 
+                                                total_time=self.total_time, 
+                                                deadband=0, background_band=0,
+                                                unmixed_phase=0,unmixed_disturbance_intensity=0, 
+                                                mixed_phase_disturbance=0,disturbance_intensity=0, 
+                                                disturbance_starting_point=0,
+                                                add_noise=False, 
+                                                noise_intensity=0,
+                                                curvature='big',
+                                                noise_type=None
+                                                )
+                gen_straightCurve = self.generate_base(alpha=self.alpha[target_dcdt[1][straight_curve][1]],
+                                                    cs=self.cs[target_dcdt[1][straight_curve][0]], 
+                                                    c0=self.c0, 
+                                                    t0=0, 
+                                                    total_time=self.total_time, 
+                                                    deadband=0, background_band=0,
+                                                    unmixed_phase=0, unmixed_disturbance_intensity=0, 
+                                                    mixed_phase_disturbance=0, disturbance_intensity=0, 
+                                                    disturbance_starting_point=0,
+                                                    add_noise=True, 
+                                                    noise_intensity=0,
+                                                    curvature='straight',
+                                                    noise_type=None
+                                                    )
+                gen_inbetweenCurve = self.generate_base(alpha=self.alpha[target_dcdt[1][inbetween_curve][1]],
+                                                    cs=self.cs[target_dcdt[1][inbetween_curve][0]], 
+                                                    c0=self.c0, 
+                                                    t0=0, 
+                                                    total_time=self.total_time, 
+                                                    deadband=0, background_band=0,
+                                                    unmixed_phase=0, unmixed_disturbance_intensity=0, 
+                                                    mixed_phase_disturbance=0, disturbance_intensity=0, 
+                                                    disturbance_starting_point=0,
+                                                    add_noise=False, 
+                                                    noise_intensity=0,
+                                                    curvature='inbetween',
+                                                    noise_type=None
+                                                    )
+                gen_bigCurve_exp = self.generate_base(alpha=self.alpha[target_dcdt[1][big_curve][1]],
+                                                    cs=self.cs[target_dcdt[1][big_curve][0]], 
+                                                    c0=self.c0, 
+                                                    t0=0, 
+                                                    total_time=self.total_time, 
+                                                    deadband=0, background_band=0,
+                                                    unmixed_phase=0, unmixed_disturbance_intensity=0, 
+                                                    mixed_phase_disturbance=0, disturbance_intensity=0, 
+                                                    disturbance_starting_point=0,
+                                                    add_noise=False, 
+                                                    noise_intensity=0,
+                                                    curvature='big',
+                                                    noise_type='exp'
+                                                    )
+                gen_straightCurve_exp = self.generate_base(alpha=self.alpha[target_dcdt[1][straight_curve][1]],
+                                                        cs=self.cs[target_dcdt[1][straight_curve][0]], 
+                                                        c0=self.c0, 
+                                                        t0=0, 
+                                                        total_time=self.total_time, 
+                                                        deadband=0, background_band=0,
+                                                        unmixed_phase=0, unmixed_disturbance_intensity=0, 
+                                                        mixed_phase_disturbance=0, disturbance_intensity=0, 
+                                                        disturbance_starting_point=0,
+                                                        add_noise=False, 
+                                                        noise_intensity=0,
+                                                        curvature='straight',
+                                                        noise_type='exp'
+                                                        )
+                gen_inbetweenCurve_exp = self.generate_base(alpha=self.alpha[target_dcdt[1][inbetween_curve][1]],
+                                                        cs=self.cs[target_dcdt[1][inbetween_curve][0]], 
+                                                        c0=self.c0, 
+                                                        t0=0, 
+                                                        total_time=self.total_time, 
+                                                        deadband=0, background_band=0,
+                                                        unmixed_phase=0, unmixed_disturbance_intensity=0, 
+                                                        mixed_phase_disturbance=0, disturbance_intensity=0, 
+                                                        disturbance_starting_point=0,
+                                                        add_noise=False, 
+                                                        noise_intensity=0,
+                                                        curvature='inbetween',
+                                                        noise_type='exp'
+                                                        )
+
+                ax[0,0].scatter(self.alpha[target_dcdt[1][big_curve][1]], self.cs[target_dcdt[1][big_curve][0]], color='red', marker='o', s=20,alpha=1,edgecolors='black')
+                ax[0,0].scatter(self.alpha[target_dcdt[1][straight_curve][1]], self.cs[target_dcdt[1][straight_curve][0]], color='violet', marker='o',s=20,alpha=1,edgecolors='black')
+                # ax[0,0].scatter(self.alpha[target_dcdt[1][inbetween_curve][1]], self.cs[target_dcdt[1][inbetween_curve][0]], color='#FFA500', marker='o',s=20,alpha=1,edgecolors='black')
+
+            ax[1,i].plot(concentration_bigCurve, color='red', linestyle='--')
+            ax[1,i].plot(concentration_straightCurve, color='violet', linestyle='--')
+            # ax[1,i].plot(concentration_inbetweenCurve, color='#FFA500', linestyle='--')
+
+            ax[2,i].plot(dcdt_bigCurve/dcdt_bigCurve.mean(), color='red', linestyle='--')
+            ax[2,i].plot(dcdt_straightCurve/dcdt_straightCurve.mean(), color='violet', linestyle='--')
+            # ax[2,i].plot(dcdt_inbetweenCurve/dcdt_inbetweenCurve.mean(), color='#FFA500', linestyle='--')
+            # ax[1].plot(concentration_straightCurve, color='violet')
+            # ax[1].plot(concentration_inbetweenCurve, color='#FFA500', linestyle='--')
+
+            ax[1,i].scatter(np.arange(self.total_time), gen_bigCurve['final_value'], color='k', alpha=0.1, s=2)
+            ax[1,i].scatter(np.arange(self.total_time), gen_straightCurve['final_value'], color='k', alpha=0.1, s=2)
+            # ax[1,i].scatter(np.arange(self.total_time), gen_inbetweenCurve['final_value'], color='k', alpha=0.1, s=2)
+
+            # ax[1,i].scatter(np.arange(self.total_time), gen_bigCurve_exp['final_value'], color='blue', alpha=0.1, s=2)
+            # ax[1,i].scatter(np.arange(self.total_time), gen_straightCurve_exp['final_value'], color='blue', alpha=0.1, s=2)
+            # ax[1,i].scatter(np.arange(self.total_time), gen_inbetweenCurve_exp['final_value'], color='blue', alpha=0.1, s=2)
+
+
+                # ax[2].plot(dcdt_bigCurve, color='red', linestyle='-.')
+                # ax[2].plot(dcdt_inbetweenCurve, color='#FFA500', linestyle='--')
+                # ax[2].plot(dcdt_straightCurve, color='violet')
+                # ax[2].plot(dcdt_bigCurve/dcdt_bigCurve.mean(), color='red', linestyle='-')
+                # ax[2].plot(dcdt_inbetweenCurve/dcdt_inbetweenCurve.mean(), color='#FFA500', linestyle='-')
+                # ax[2].plot(dcdt_straightCurve/dcdt_straightCurve.mean(), color='violet', linestyle='-')
+                                                
+                
+        
+
+                # break 
+        
+        # ax[1].hist(target_dcdt[0][:], bins=20, alpha=0.5, color='blue')
+        ax[2,1].sharex(ax[1,1])
+        ax[0,0].set_xscale('log')
+        ax[0,0].set_yscale('log')
+        ax[0,0].set_xlabel('$\\alpha$')
+        ax[0,0].set_ylabel('$C_s$')
+        # ax[0,0].set_title('Parameter space ($\\alpha$ vs $C_s$)')
+
+        # ax[1,1].set_xlabel('Time [s]')
+        ax[1,0].set_ylabel('$CO_2$ [ppm]')
+        ax[1,0].set_xlabel('Time [s]')
+
+        ax[2,0].set_ylabel('$\\frac{(dCO_2/dt)(t)}{(dCO_2/dt)_{mean}}$')
+        ax[2,0].set_xlabel('Time [s]')
+
+        # ax[2].set_yscale('log')
+
+        fig.tight_layout()
