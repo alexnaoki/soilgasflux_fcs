@@ -53,11 +53,13 @@ class Initializer:
             df['c_s'] = config['c_s']
             df['c_c0'] = config['c_c0']
             df['deadband'] = config['deadband']
-            df['disturbance_intensity'] = config['disturbance_intensity']
-            df['disturbance_starting_point'] = config['disturbance_starting_point']
-            df['add_noise'] = config['add_noise']
-            df['curvature'] = config['curvature']
-
+            try:
+                df['disturbance_intensity'] = config['disturbance_intensity']
+                df['disturbance_starting_point'] = config['disturbance_starting_point']
+                df['add_noise'] = config['add_noise']
+                df['curvature'] = config['curvature']
+            except:
+                pass
             dfs.append(df)
         df_data = pd.concat(dfs)
         df_data.sort_values(by='datetime', inplace=True)
