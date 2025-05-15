@@ -16,8 +16,10 @@ class MCMC:
         yrange = np.nanmax(y) - np.nanmin(y)
 
         sigma2 = yerr ** 2
+        n = len(y)
 
-        return -0.5 * np.sum(((y - model)/yrange) ** 2 / sigma2 + np.log(2*np.pi*sigma2))
+        #return -0.5 * np.sum(((y - model)/yrange) ** 2 / sigma2 + np.log(2*np.pi*sigma2))
+        return -0.5 * np.sum(((y - model)) ** 2 / (n*sigma2) + np.log(2*np.pi*sigma2))
     
     def ln_prior(self, theta, cx_bf, alpha_bf):
         alpha, cx = theta
