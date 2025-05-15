@@ -21,7 +21,7 @@ class MCMC:
     def ln_prior(self, theta, cx_bf, alpha_bf):
         alpha, cx = theta
 
-        if (cx_bf*10e-2 < cx < cx_bf*10e2) and (alpha_bf*10e-2 < alpha < alpha_bf*10e2):
+        if (cx_bf*10e-3 < cx < cx_bf*10e3) and (alpha_bf*10e-3 < alpha < alpha_bf*10e3):
             return 0.0
         return -np.inf
     
@@ -31,7 +31,7 @@ class MCMC:
             return -np.inf
         return lp + self.ln_likelihood(theta, t, y, yerr, c0)
     
-    def run_mcmc(self, t, y, yerr, c0, cx_bf, alpha_bf, nwalkers=100, nsteps=1000):
+    def run_mcmc(self, t, y, yerr, c0, cx_bf, alpha_bf, nwalkers=100, nsteps=2000):
         ndim = 2
 
         # pos_alpha = np.random.uniform(low=alpha_bf*10e-2, high=alpha_bf*10e2, size=(nwalkers, 1))
@@ -46,7 +46,7 @@ class MCMC:
         sampler.run_mcmc(pos, nsteps)
 
         # samples = sampler.get_chain()
-        flat_samples = sampler.get_chain(flat=True, discard=int(nsteps*0.4), thin=15) # ()
+        flat_samples = sampler.get_chain(flat=True, discard=int(nsteps*0.5), thin=20) # ()
 
         return sampler, flat_samples
 
