@@ -99,12 +99,12 @@ class HM_model:
 
     def fit_target_function_cutoff(self, t, gas_concentration, c_0, deadband, cutoff,display_results=True, pi=False):
         fmodel = Model(self.target_function)
-        params = fmodel.make_params(cx=c_0, a=1, t0=0, c0=c_0)
+        params = fmodel.make_params(cx=c_0, a=0.1, t0=0, c0=c_0)
         params['c0'].vary = False
         params['a'].min=0
         # params['cx'].max=10e5
         # params['cx'].min=c_0
-        params['t0'].vary=False
+        #params['t0'].vary=False
 
         try:
             if not pi:
@@ -209,13 +209,13 @@ class HM_model:
         t0MC = t0 + sigma_t0*np.random.normal(size=n)
 
         mcmc = MCMC()
-        sampler, flat_samples = mcmc.run_mcmc(t=self.timestamp.values[deadband:cutoff], 
+        sampler, flat_samples, logprob_samples = mcmc.run_mcmc(t=self.timestamp.values[deadband:cutoff], 
                                               y=self.co2.values[deadband:cutoff], 
-                                              yerr=0.5, # measurement error 
+                                              yerr=1.5, # measurement error 
                                               c0=C_0, 
                                               cx_bf=cx, 
                                               alpha_bf=a,
-                                              nwalkers=100, nsteps=1000)
+                                              nwalkers=100, nsteps=n)
         
         dcdt_mcmc = self.dcdt(t_0=0, C_0=C_0, 
                               alpha=flat_samples[:,0], C_x=flat_samples[:,1], 
@@ -227,6 +227,7 @@ class HM_model:
         # print(len(dcdt_mcmc_filter))
         random_index = np.random.choice(len(dcdt_mcmc_filter), n)
         dcdt_samples = dcdt_mcmc_filter[random_index]
+        logprob_selected_samples = logprob_samples[random_index]
 
         dc_dtMC = dcdt_samples
 
@@ -254,4 +255,4 @@ class HM_model:
                                              dc_dt=dc_dtMC)
         
 
-        return dc_dtMC, C_0,cxMC, aMC, t0MC, soilgasflux_CO2MC, deadband, cutoff
+        return dc_dtMC, C_0,cxMC, aMC, t0MC, soilgasflux_CO2MC, deadband, cutoff, logprob_selected_samples

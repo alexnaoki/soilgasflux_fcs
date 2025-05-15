@@ -23,7 +23,7 @@ class Multiprocessor:
         print('Processing ID:', id)
         df_id = df[df['id'] == id]
         a_fcs = FCS(df_data=df_id, chamber_id='test')
-        a_fcs.settings(moving_window=True, window_walk=10, min_window_size=20, 
+        a_fcs.settings(moving_window=True, window_walk=10, min_window_size=30, 
                        min_deadband=0, max_deadband=60)
         
         results = a_fcs.run(n=id,metadata={'area':314, 'volume':6283})
@@ -34,10 +34,10 @@ class Multiprocessor:
         print('Processing ID:', id)
         df_id = df[df['id'] == id]
         a_fcs = FCS(df_data=df_id, chamber_id='test')
-        a_fcs.settings(moving_window=True, window_walk=10, min_window_size=20, 
+        a_fcs.settings(moving_window=True, window_walk=10, min_window_size=30, 
                        min_deadband=0, max_deadband=60)
         
-        results = a_fcs.run_MC(n=id, n_MC=500,metadata={'area':314, 'volume':6283})
+        results = a_fcs.run_MC(n=id, n_MC=1000,metadata={'area':314, 'volume':6283})
         print('Results:', results.keys())
         return results
 
@@ -80,6 +80,7 @@ class Multiprocessor:
                     'R2(linear)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['R2(linear)'] for t in times])),
                     'nRMSE(HM)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['nRMSE(HM)'] for t in times])),
                     'nRMSE(linear)': (['time',  'cutoff','deadband'], np.array([converted_data[t]['nRMSE(linear)'] for t in times])),
+
                 },
                 coords={
                     'time': times,
@@ -133,6 +134,7 @@ class Multiprocessor:
                     'R2(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['R2(linear)'] for t in times], dtype=np.float32)),
                     'nRMSE(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['nRMSE(HM)'] for t in times], dtype=np.float32)),
                     'nRMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['nRMSE(linear)'] for t in times], dtype=np.float32)),
+                    'logprob(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['logprob(HM)'] for t in times], dtype=np.float32)),
                 },
                 coords={
                     'time': times,
