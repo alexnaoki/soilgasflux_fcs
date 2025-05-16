@@ -23,7 +23,7 @@ class Multiprocessor:
         print('Processing ID:', id)
         df_id = df[df['id'] == id]
         a_fcs = FCS(df_data=df_id, chamber_id='test')
-        a_fcs.settings(moving_window=True, window_walk=10, min_window_size=30, 
+        a_fcs.settings(moving_window=True, window_walk=10, min_window_size=60, 
                        min_deadband=0, max_deadband=60)
         
         results = a_fcs.run(n=id,metadata={'area':314, 'volume':6283})
@@ -34,7 +34,7 @@ class Multiprocessor:
         print('Processing ID:', id)
         df_id = df[df['id'] == id]
         a_fcs = FCS(df_data=df_id, chamber_id='test')
-        a_fcs.settings(moving_window=True, window_walk=10, min_window_size=30, 
+        a_fcs.settings(moving_window=True, window_walk=10, min_window_size=60, 
                        min_deadband=0, max_deadband=60)
         
         results = a_fcs.run_MC(n=id, n_MC=1000,metadata={'area':314, 'volume':6283})
