@@ -56,9 +56,13 @@ class MCMC:
         # pos_alpha = np.exp(np.random.uniform(low=np.log(alpha_bf-(alpha_bf*0.1)), high=np.log(alpha_bf+(alpha_bf*0.1)), size=(nwalkers, 1)))
         # pos_cx = np.exp(np.random.uniform(low=np.log(cx_bf-(cx_bf*0.1)), high=np.log(cx_bf+(cx_bf*0.1)), size=(nwalkers, 1)))
 
-        pos_alpha = np.exp(np.random.uniform(low=np.log(alpha_bf*1e-2), high=alpha_bf*1e2, size=(nwalkers,1)))
-        pos_cx = np.exp(np.random.uniform(low=np.log(cx_bf*1e-2), high=np.log(cx_bf*1e2), size=(nwalkers,1)))
-        pos_t0 = np.random.uniform(low=0, high=100, size=(nwalkers, 1)) # t0_bf
+        pos_alpha = np.exp(np.random.uniform(low=np.log(alpha_bf*1e-3), 
+                                             high=np.log(alpha_bf*1e3), 
+                                             size=(nwalkers,1)))
+        pos_cx = np.exp(np.random.uniform(low=np.log(cx_bf*1e-3), 
+                                          high=np.log(cx_bf*1e3), 
+                                          size=(nwalkers,1)))
+        pos_t0 = np.random.uniform(low=0, high=60, size=(nwalkers, 1)) # t0_bf
 
         #gaussian distribution
         # pos_alpha = np.ones((nwalkers, 1)) * alpha_bf + np.random.normal(0, alpha_bf*10, size=(nwalkers, 1))
