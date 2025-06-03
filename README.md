@@ -1,5 +1,113 @@
 # soilgasflux_fcs
 
+A Python package for processing chamber CO₂ measurements to calculate soil gas flux using advanced mathematical models with uncertainty quantification.
+
+## Requirements
+
+### System Requirements
+- Python 3.9 or higher
+- Operating System: Windows, macOS, or Linux
+- Recommended: 8+ GB RAM for large datasets with MCMC analysis
+
+### Python Dependencies
+
+#### Core Dependencies
+```
+numpy >= 1.20.0
+pandas >= 1.3.0
+matplotlib >= 3.5.0
+scipy >= 1.7.0
+xarray >= 0.19.0
+```
+
+#### Optional Dependencies
+```
+emcee >= 3.0.0          # For MCMC uncertainty quantification
+pathlib                 # For file path handling (included in Python 3.4+)
+json                     # For data input/output (standard library)
+multiprocessing          # For parallel processing (standard library)
+```
+
+#### Development Dependencies
+```
+jupyter                  # For running example notebooks
+netcdf4                  # For NetCDF file support with xarray
+```
+
+## Installation
+
+### Option 1: Install from Source (Recommended)
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/yourusername/soilgasflux_fcs.git
+   cd soilgasflux_fcs
+   ```
+
+2. **Create a virtual environment (recommended):**
+   ```bash
+   # Using conda
+   conda create -n soilgasflux python=3.9
+   conda activate soilgasflux
+   
+   # Or using venv
+   python -m venv soilgasflux_env
+   source soilgasflux_env/bin/activate  # On Windows: soilgasflux_env\Scripts\activate
+   ```
+
+3. **Install required dependencies:**
+   ```bash
+   # Core scientific computing stack
+   pip install numpy pandas matplotlib scipy xarray
+   
+   # For MCMC uncertainty quantification
+   pip install emcee
+   
+   # For NetCDF file support
+   pip install netcdf4
+   
+   # Optional: for development and examples
+   pip install jupyter
+   ```
+
+4. **Install the package in development mode:**
+   ```bash
+   pip install -e .
+   ```
+
+### Option 2: Install Dependencies Only
+
+If you prefer to run the package without formal installation:
+
+```bash
+# Install required packages
+pip install numpy pandas matplotlib scipy xarray emcee netcdf4
+
+# Clone and use directly
+git clone https://github.com/yourusername/soilgasflux_fcs.git
+cd soilgasflux_fcs
+```
+
+Then import using:
+```python
+import sys
+sys.path.append('/path/to/soilgasflux_fcs')
+from soilgasflux_fcs import FCS, json_reader
+```
+
+### Verify Installation
+
+Test your installation by running:
+
+```python
+from soilgasflux_fcs import FCS, json_reader, HM_model, LINEAR_model
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+print("✓ soilgasflux_fcs imported successfully!")
+print("✓ All dependencies are working")
+```
 
 # Package
 ## 1. Flux Calculation Schema 
