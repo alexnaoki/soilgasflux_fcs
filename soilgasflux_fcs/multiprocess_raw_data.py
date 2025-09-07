@@ -164,7 +164,7 @@ class Multiprocessor:
             print('NetCDF file saved')
         return ds
 
-    def select_bestPareto(self, ds):
+    def select_bestPareto(self, ds, chamber_id,output_folder=None):
         '''
         
         output: dataset with MCMC results from  the best pareto front
@@ -186,11 +186,15 @@ class Multiprocessor:
             pareto_uncertaintyRange_logprob = pa.find_pareto_front(x=flatNorm_uncertaintyRange,
                                                                             y=flatNorm_logprob, 
                                                                             maximize_x=False, maximize_y=False)
-            coords_pareto_uncertaintyRange_logprob = pa.get_coords_pareto(pareto_indices=pareto_uncertaintyRange_logprob)
+            try:
+                coords_pareto_uncertaintyRange_logprob = pa.get_coords_pareto(pareto_indices=pareto_uncertaintyRange_logprob)
 
-            best_pareto_x, best_pareto_y = pa.get_best_from_pareto(pareto_indices=pareto_uncertaintyRange_logprob, 
-                                                                    metric_x=Norm_uncertaintyRange,
-                                                                    metric_y=Norm_logprob)
+                best_pareto_x, best_pareto_y = pa.get_best_from_pareto(pareto_indices=pareto_uncertaintyRange_logprob, 
+                                                                        metric_x=Norm_uncertaintyRange,
+                                                                        metric_y=Norm_logprob)
+            except:
+                print('Pareto front not found for time:', time)
+                continue
             uncertaintyRange_hm = pa.uncertaintyRange
             logprob_hm = pa.logprob
 
@@ -222,4 +226,9 @@ class Multiprocessor:
                 'MC': n_MC
             }
         )
+
+        if output_folder is not None:
+            ds_best.to_netcdf(f'{output_folder}/{chamber_id}_bestPareto.nc')
+            print('Best pareto dataset saved to:', output_folder)
+
         return ds_best
