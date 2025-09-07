@@ -7,6 +7,7 @@ from .hm_model import HM_model
 from .linear_model import LINEAR_model
 from .metrics import calculate_AIC, rmse, r2, normalized_rmse
 from .models import hm_model, linear_model, hm_model_dcdt
+import traceback
 
 class FCS:
     def __init__(self, df_data, chamber_id):
@@ -135,12 +136,16 @@ class FCS:
                     continue
                     
                 try:
-                    hm = HM_model(raw_data=self.df_data, metadata=metadata)
+                    hm = HM_model(raw_data=self.df_data, 
+                                  metadata=metadata)
                     hm_results = hm.calculate_MC(deadband=deadband, cutoff=cutoff, n=n_MC)
                     dc_dt, C_0, cx, a, t0, soilgasflux_CO2, deadband, cutoff, logprob = hm_results
                     
                     # Ensure arrays have proper shape
                     t = np.arange(deadband, cutoff, 1)
+
+                    # print('ok')
+                    # print(cx)
                     
                     # Reshape parameter arrays if needed
                     if not isinstance(cx, np.ndarray) or cx.ndim == 1:
@@ -165,7 +170,6 @@ class FCS:
                     results[f'{n}']['dcdt(HM)'][n_cutoff, n_deadband, :] = dc_dt
 
                     results[f'{n}']['logprob(HM)'][n_cutoff, n_deadband, :] = logprob
-                    
                     # For metrics, may need to handle differently depending on what run_metrics returns
                     if isinstance(metrics['aic'], np.ndarray) and len(metrics['aic']) == n_MC:
                         results[f'{n}']['AIC(HM)'][n_cutoff, n_deadband, :] = metrics['aic']
@@ -190,6 +194,7 @@ class FCS:
                 except Exception as e:
                     print('ERROR HM ####')
                     print(e)
+                    traceback.print_exc()
                     print(f'Deadband: {deadband}, Cutoff: {cutoff}')
 
                 try:

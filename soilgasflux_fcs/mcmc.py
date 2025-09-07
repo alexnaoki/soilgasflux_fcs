@@ -8,26 +8,29 @@ class MCMC:
         pass
 
     def ln_prior(self, theta, cx_bf, alpha_bf, t0_bf):
-        alpha, cx, t0_bf = theta
+        alpha, cx, t0 = theta
         mult = 1
 
         # if (cx_bf/(1e1*mult) < cx < cx_bf*(1e1*mult)) and (alpha_bf/(1e1*mult) < alpha < alpha_bf*(1e1*mult)):
         # if (cx_bf-(cx_bf*0.01) < cx < cx_bf+(cx_bf*.01)) and (alpha_bf-(alpha_bf*0.01) < alpha < alpha_bf+(alpha_bf*0.01)):
         # if 0 < cx < np.inf and 0 < alpha < np.inf:
-        if cx_bf*1e-2 < cx < cx_bf*1e2 and 0 < alpha < alpha_bf*1e2 and 0 < t0_bf < 100:
+        # if cx_bf*1e-2 < cx < cx_bf*1e2 and 0 < alpha < alpha_bf*1e2 and 0 < t0 < 10*t0_bf:
+        
+        # if cx_bf*1e-2 < cx < cx_bf*1e2 or 0 < alpha < alpha_bf*1e2:
+        if cx_bf*1e-2 < cx < cx_bf*1e2 and alpha_bf*1e-2 < alpha < alpha_bf*1e2:
             return 0.0
         return -np.inf
 
     def ln_likelihood(self, theta, t, y, yerr, c0):
         alpha, cx, t0 = theta
         model = hm_model(t, cx, alpha, t0, c0)
-        # yrange = np.nanmax(y) - np.nanmin(y)
+        yrange = np.nanmax(y) - np.nanmin(y)
 
         sigma2 = yerr ** 2
         n = len(y)
 
         
-        return -0.5 * np.sum(((y - model)) ** 2 / (sigma2) + np.log(2*np.pi*sigma2))          # no
+        return -0.5 * np.sum(((y - model)) ** 2 / (sigma2) + np.log(sigma2))          # no
         # return -0.5 * np.sum(((y - model)/yrange) ** 2 / (sigma2) + np.log(2*np.pi*sigma2))   # yRange
         # return -0.5 * np.sum(((y - model)/n) ** 2 / (sigma2) + np.log(2*np.pi*sigma2))        # len
 
@@ -41,11 +44,11 @@ class MCMC:
             return -np.inf
         return lp + self.ln_likelihood(theta, t, y, yerr, c0)
     
-    def run_mcmc(self, t, y, yerr, c0, cx_bf, alpha_bf, t0_bf,nwalkers=100, nsteps=2000):
+    def run_mcmc(self, t, y, yerr, c0, cx_bf, alpha_bf, t0_bf,nwalkers, nsteps):
         ndim = 3
 
-        nwalkers = 100
-        nsteps=2000
+        # nwalkers = 50
+        # nsteps=3000
         # pos_alpha = np.random.uniform(low=alpha_bf*10e-2, high=alpha_bf*10e2, size=(nwalkers, 1))
         # pos_cx = np.random.uniform(low=cx_bf*10e-2, high=cx_bf*10e2, size=(nwalkers, 1))
         mult = 1
@@ -56,11 +59,11 @@ class MCMC:
         # pos_alpha = np.exp(np.random.uniform(low=np.log(alpha_bf-(alpha_bf*0.1)), high=np.log(alpha_bf+(alpha_bf*0.1)), size=(nwalkers, 1)))
         # pos_cx = np.exp(np.random.uniform(low=np.log(cx_bf-(cx_bf*0.1)), high=np.log(cx_bf+(cx_bf*0.1)), size=(nwalkers, 1)))
 
-        pos_alpha = np.exp(np.random.uniform(low=np.log(alpha_bf*1e-3), 
-                                             high=np.log(alpha_bf*1e3), 
+        pos_alpha = np.exp(np.random.uniform(low=np.log(alpha_bf*1e-2), 
+                                             high=np.log(alpha_bf*1e2), 
                                              size=(nwalkers,1)))
-        pos_cx = np.exp(np.random.uniform(low=np.log(cx_bf*1e-3), 
-                                          high=np.log(cx_bf*1e3), 
+        pos_cx = np.exp(np.random.uniform(low=np.log(cx_bf*1e-2), 
+                                          high=np.log(cx_bf*1e2), 
                                           size=(nwalkers,1)))
         pos_t0 = np.random.uniform(low=0, high=60, size=(nwalkers, 1)) # t0_bf
 

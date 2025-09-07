@@ -122,6 +122,7 @@ class HM_model:
             else:
                 result = fmodel.fit(gas_concentration[deadband:cutoff], params, t=t[deadband:cutoff])
         except Exception as e:
+            print('Error in fitting the target function:')
             print(e)
             return None
         
@@ -139,6 +140,7 @@ class HM_model:
                     
                     }
         except Exception as e:
+            print('Error in extracting the best fit parameters or uncertainty:')
             print(e)
             return None
 
@@ -164,11 +166,11 @@ class HM_model:
         a = result_fit['parameters_best_fit']['a']
         t0 = result_fit['parameters_best_fit']['t0']
         
-        print('####')
-        print('deadband:', deadband)
-        print('cutoff:', cutoff)
-        print('cx:', cx)
-        print('a:', a)
+        # print('####')
+        # print('deadband:', deadband)
+        # print('cutoff:', cutoff)
+        # print('cx:', cx)
+        # print('a:', a)
 
 
         temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
@@ -191,19 +193,18 @@ class HM_model:
                                              W0=X_h2o.head(1)[0],
                                              T0=self.temperature.head(1)[0], 
                                              dc_dt=dc_dt)
-        print('dcdt:', dc_dt)        
-        print('####')
+        # print('dcdt:', dc_dt)        
+        # print('####')
 
 
         return dc_dt, C_0,cx, a, t0, soilgasflux_CO2, deadband, cutoff
         # return dc_dt,soilgasflux_CO2, uncertainty, fitted_x,fitted_y, fitted_y_lower, fitted_y_higher, dc_dt_lower, dc_dt_higher, lower_ci, higher_ci, cx, a, t0, temperature_start, pressure_start, humidity_start,C_0[0]
 
 
-    def calculate_MC(self, deadband, cutoff, n=3000):
+    def calculate_MC(self, deadband, cutoff, n):
         '''
         
         '''
-        n=2000
         if self.using_rpi:
             X_h2o = self.mole_fraction_water_vapor(self.temperature, self.humidity, self.pressure)
         else:
@@ -227,17 +228,17 @@ class HM_model:
 
         # cxMC = cx 
         # aMC = a 
-        t0MC = t0 + sigma_t0*np.random.normal(size=n)
+        # t0MC = t0 + sigma_t0*np.random.normal(size=n)
 
-        print('####')
-        print('deadband:', deadband)
-        print('cutoff:', cutoff)
-        print('cx:', cx)
-        print('a:', a)
+        # print('####')
+        # print('deadband:', deadband)
+        # print('cutoff:', cutoff)
+        # print('cx:', cx)
+        # print('a:', a)
 
         # dcdt_bf = np.median((self.dcdt(t0, C_0, a, cx, self.timestamp[deadband:cutoff])))
         dcdt_bf = self.dcdt(t0, C_0, a, cx, np.median(self.timestamp[deadband:cutoff]))
-        print('dcdt_bf:', dcdt_bf)
+        # print('dcdt_bf:', dcdt_bf)
         # print(self.timestamp.values[deadband:cutoff])
 
 
@@ -246,12 +247,13 @@ class HM_model:
         sampler, flat_samples, logprob_samples = mcmc.run_mcmc(t=self.timestamp.values[deadband:cutoff], 
                                               y=self.co2.values[deadband:cutoff], 
                                             #   yerr=1.5, # measurement error 
-                                            yerr=np.ones(cutoff-deadband)*1.5, # measurement error
+                                            yerr=np.ones(cutoff-deadband)*0.5, # measurement error
                                               c0=C_0, 
                                               cx_bf=cx, 
                                               alpha_bf=a,
                                               t0_bf=t0,
-                                              nwalkers=100, nsteps=n)
+                                              nwalkers=20, nsteps=n)
+        # print('autocorrelation time:', sampler.get_autocorr_time())
         
         timestamp = np.median(self.timestamp.values[deadband:cutoff])
         
@@ -278,18 +280,18 @@ class HM_model:
         aMC = flat_samples[random_index,0]
         cxMC = flat_samples[random_index,1]
         t0MC = flat_samples[random_index,2]
-        print('cx_MC:',np.median(cxMC), '|',np.min(cxMC), '|',np.max(cxMC))
-        print('a_MC:',np.median(aMC), '|',np.min(aMC), '|',np.max(aMC))
-        print('t0_MC:',np.median(t0MC), '|',np.min(t0MC), '|',np.max(t0MC))
-        print('dcdt_fromMedian', self.dcdt(t0MC, C_0, np.median(aMC), np.median(cxMC), self.timestamp[deadband:cutoff].mean()))
+        # print('cx_MC:',np.median(cxMC), '|',np.min(cxMC), '|',np.max(cxMC))
+        # print('a_MC:',np.median(aMC), '|',np.min(aMC), '|',np.max(aMC))
+        # print('t0_MC:',np.median(t0MC), '|',np.min(t0MC), '|',np.max(t0MC))
+        # print('dcdt_fromMedian', self.dcdt(t0MC, C_0, np.median(aMC), np.median(cxMC), self.timestamp[deadband:cutoff].mean()))
 
         temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
         pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
         humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
 
         
-        print('dcdtMC:', np.median(dc_dtMC), '|', np.min(dc_dtMC), '|', np.max(dc_dtMC))
-        print('####')
+        # print('dcdtMC:', np.median(dc_dtMC), '|', np.min(dc_dtMC), '|', np.max(dc_dtMC))
+        # print('####')
 
         # fitted_y = self.target_function(t=self.timestamp.values[deadband:cutoff],
         #                                 cx=cx,

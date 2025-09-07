@@ -395,6 +395,8 @@ class Generator:
             top_n_most_straight_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argsort()[:n]
             top_n_inbetween_curve = self.diff_dcdt[target_dcdt[1][:,0], target_dcdt[1][:,1]].argsort()[int(100/1.3):int(100/1.3)+n]
 
+            self.top_n_biggest_curve = top_n_biggest_curve
+            self.top_n_most_straight_curve = top_n_most_straight_curve
 
             # for dcdt, idx in zip(*target_dcdt):
             #     # print(idx)
@@ -571,3 +573,8 @@ class Generator:
         # ax[2].set_yscale('log')
 
         fig.tight_layout()
+
+
+    def _alldata(self):
+
+        return self.alpha, self.cs, self.c0,self.aa, self.cc, self.dcdt, self.top_n_biggest_curve, self.top_n_most_straight_curve

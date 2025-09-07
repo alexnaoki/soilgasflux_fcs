@@ -22,6 +22,11 @@ class Pareto:
         logprob = -dsMC.median(dim=['MC'])['logprob(HM)']
         logprob = logprob.where(logprob != np.inf, np.nan)
 
+        self.logprob = logprob
+        self.uncertaintyRange = uncertaintyRange
+
+        # print('uncertaintyRange:', uncertaintyRange)
+
         norm_uncertaintyRange = (uncertaintyRange.values - np.nanmin(uncertaintyRange.values)) / (np.nanmax(uncertaintyRange.values) - np.nanmin(uncertaintyRange.values))
         norm_logprob = (logprob.values - np.nanmin(logprob.values)) / (np.nanmax(logprob.values) - np.nanmin(logprob.values))
 
@@ -91,20 +96,40 @@ class Pareto:
         coords_pareto : tuple
             Coordinates of the Pareto front points in the original dataset
         """
-        coords_pareto = np.unravel_index(pareto_indices, self.dsMC.shape)
+        # coords_pareto = np.unravel_index(pareto_indices, self.dsMC.shape)
+        coords_pareto = np.unravel_index(pareto_indices, self.dsMC.median(dim=['MC'])['dcdt(HM)'].shape, order='C')
         return coords_pareto
 
     def get_best_from_pareto(self, pareto_indices, metric_x, metric_y):
         
         # coords_pareto = np.unravel_index(pareto_indices, self.dsMC['dcdt(HM)'].shape)
-        coords_pareto = np.unravel_index(pareto_indices, self.dsMC.median(dim=['MC'])['dcdt(HM)'].shape)
-        
+        coords_pareto = np.unravel_index(pareto_indices, self.dsMC.median(dim=['MC'])['dcdt(HM)'].shape, order='C')
+        # print('shape:', self.dsMC.median(dim=['MC'])['dcdt(HM)'].shape)
+        # print('coords_pareto:', coords_pareto)
         distance_pareto = np.sqrt(
             (metric_x[coords_pareto]**2) + (metric_y[coords_pareto]**2)
         )
-        argmin_distance = np.nanargmin(distance_pareto)
-        best_x = coords_pareto[0][argmin_distance]
-        best_y = coords_pareto[1][argmin_distance]
+        self.argmin_distance = np.nanargmin(distance_pareto)
+        # print('argmin_distance:', argmin_distance)
+
+        best_x = coords_pareto[0][self.argmin_distance]
+        best_y = coords_pareto[1][self.argmin_distance]
+        # print('best_x:', best_x, 'best_y:', best_y)
 
         return best_x, best_y
     
+    def logprob(self):
+        """
+        Get the log probability values from the dataset
+        """
+        return self.logprob
+    def uncertaintyRange(self):
+        """
+        Get the uncertainty range values from the dataset
+        """
+        return self.uncertaintyRange
+    def argmin_distance(self):
+        """
+        Get the index of the point with the minimum distance from the Pareto front
+        """
+        return self.argmin_distance

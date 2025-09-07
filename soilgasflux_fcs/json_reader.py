@@ -47,13 +47,13 @@ class Initializer:
             df['timedelta'] = df['datetime'] - df['datetime'].min()
             df['timedelta'] = df['timedelta'].apply(lambda x: x.seconds)
 
-            config = data['config']
-
-            df['alpha'] = config['alpha']
-            df['c_s'] = config['c_s']
-            df['c_c0'] = config['c_c0']
-            df['deadband'] = config['deadband']
             try:
+                config = data['config']
+                df['alpha'] = config['alpha']
+                df['c_s'] = config['c_s']
+                df['c_c0'] = config['c_c0']
+                df['deadband'] = config['deadband']
+
                 df['disturbance_intensity'] = config['disturbance_intensity']
                 df['disturbance_starting_point'] = config['disturbance_starting_point']
                 df['add_noise'] = config['add_noise']
