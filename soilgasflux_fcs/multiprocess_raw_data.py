@@ -107,7 +107,11 @@ class Multiprocessor:
 
             ds.to_netcdf(f'{output_folder}/{chamber_id}_{date}.nc')
             print('NetCDF file saved')
-        return ds
+        try:
+            return ds
+        except Exception as e:
+            print('Error returning dataset:', e)
+            return None
     
     def run_MC(self, df, chamber_id, output_folder='./output'):
         print('Multiprocessing started')
