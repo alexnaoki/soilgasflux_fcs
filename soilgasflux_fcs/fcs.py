@@ -61,15 +61,20 @@ class FCS:
                 try:
                     # print(n_deadband, n_cutoff)
                     # print(zeros_like.shape)
+                    error = []
                     hm = HM_model(raw_data=self.df_data,
                                   metadata=metadata)
+                    error.append('ok1')
                     hm_results = hm.calculate(deadband=deadband, cutoff=cutoff)
+                    error.append('ok2')
                     dc_dt, C_0, cx, a, t0, soilgasflux_CO2, deadband, cutoff = hm_results
+                    error.append('ok3')
                     t = np.arange(deadband, cutoff, 1) #TODO some points are contains gaps (e.g. 1,3,4,5,6,..)
+                    error.append('ok4')
                     hm_co2 = hm_model(t=t, 
                                     cx=cx, a=a, t0=t0, c0=C_0)
                     # hm_dcdt = hm_model_dcdt(t0=t0, c0=C_0, a=a, cx=cx, t=t)
-
+                    error.append('ok5')
                     metrics = self.run_metrics(y_raw=self.df_data['k30_co2'].values[deadband:cutoff],
                                                y_model=hm_co2)
                     
@@ -83,6 +88,8 @@ class FCS:
                 except Exception as e:
                     print('ERROR HM ####')
                     print(e)
+                    print(error)
+                    print()
 
                 try:
                     linear = LINEAR_model(raw_data=self.df_data,

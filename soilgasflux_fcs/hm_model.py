@@ -154,48 +154,59 @@ class HM_model:
         else:
             X_h2o = self.X_h2o
 
+        print('ok1')
         C_0 = self.C_0_calculated(self.co2.values[:10])
-        
+        print('ok2', C_0[0])
+        print('deadband:', deadband)
+        print('cutoff:', cutoff)
+        print(self.timestamp.values)
+        print(self.co2.values)
         result_fit = self.fit_target_function_cutoff(self.timestamp.values, 
                                                      self.co2.values, 
                                                      np.float32(C_0)[0], 
                                                      deadband=deadband, cutoff=cutoff, display_results=True)
-        
+        print('ok3')
         
         cx = result_fit['parameters_best_fit']['cx']
         a = result_fit['parameters_best_fit']['a']
         t0 = result_fit['parameters_best_fit']['t0']
-        
+        print('ok4')
         # print('####')
         # print('deadband:', deadband)
         # print('cutoff:', cutoff)
         # print('cx:', cx)
         # print('a:', a)
 
+        print(self.pressure.values[0])
+        # print(self.pressure)
+        print(self.temperature.values[0])
+        print(X_h2o)
 
-        temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
-        pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
-        humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
+        # temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
+        # pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
+        # humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
 
-        
+        print('ok5')
         fitted_y = self.target_function(t=self.timestamp.values[deadband:cutoff],
                                         cx=cx,
                                         a=a,
                                         t0=t0,
                                         c0=C_0)
         fitted_x = self.timestamp.values[deadband:cutoff]
-        
+        print('ok6')
         
         dc_dt = (self.dcdt(t0, C_0, a, cx, self.timestamp[deadband:cutoff])).mean()
+        print('ok7')
+        # print(dc_dt)
         soilgasflux_CO2 = self.gas_eeflux_v2(volume=self.volume, 
                                              area=self.area, 
-                                             P0=self.pressure.head(1)[0], 
-                                             W0=X_h2o.head(1)[0],
-                                             T0=self.temperature.head(1)[0], 
+                                             P0=self.pressure.values[0], 
+                                             W0=X_h2o.values[0],
+                                             T0=self.temperature.values[0], 
                                              dc_dt=dc_dt)
         # print('dcdt:', dc_dt)        
         # print('####')
-
+        print('ok8')
 
         return dc_dt, C_0,cx, a, t0, soilgasflux_CO2, deadband, cutoff
         # return dc_dt,soilgasflux_CO2, uncertainty, fitted_x,fitted_y, fitted_y_lower, fitted_y_higher, dc_dt_lower, dc_dt_higher, lower_ci, higher_ci, cx, a, t0, temperature_start, pressure_start, humidity_start,C_0[0]
