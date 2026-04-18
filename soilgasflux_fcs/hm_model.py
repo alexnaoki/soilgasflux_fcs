@@ -258,7 +258,7 @@ class HM_model:
         sampler, flat_samples, logprob_samples = mcmc.run_mcmc(t=self.timestamp.values[deadband:cutoff], 
                                               y=self.co2.values[deadband:cutoff], 
                                             #   yerr=1.5, # measurement error 
-                                            yerr=np.ones(cutoff-deadband)*0.5, # measurement error
+                                            yerr=np.ones(cutoff-deadband)*1.5, # measurement error
                                               c0=C_0, 
                                               cx_bf=cx, 
                                               alpha_bf=a,

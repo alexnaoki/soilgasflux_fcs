@@ -64,23 +64,55 @@ class Multiprocessor:
             #     json.dump(combined_results,f)
 
             converted_data = self.convert_keys_to_datetime(combined_results)
+            
             times = list(converted_data.keys())
-            cutoff = list(converted_data[times[0]]['cutoff'])
-            deadband = list(converted_data[times[0]]['deadband'])
+            
+            for i,t in enumerate(times):
+                if i ==0:
+                    cutoff = list(converted_data[times[0]]['cutoff'])
+                    deadband = list(converted_data[times[0]]['deadband'])
+                    print('starting')
+                    print(cutoff, deadband)
+                else:
+                    if cutoff[-1] != list(converted_data[t]['cutoff'])[-1]:
+                        # print('Cutoff values mismatch at time:', t)
+                        print('here')
+                        if cutoff[-1] > list(converted_data[t]['cutoff'])[-1]:
+                            cutoff = list(converted_data[t]['cutoff'])
+                            print('New cutoff has smaller max value at time:', t)
+                        else:
+                            pass
+            
             print(deadband, cutoff)
-            # print(converted_data)
-            print('test')
-            print(times)
-            print(np.shape(np.array(converted_data[times[0]]['dcdt(HM)'])))
-            # print(np.array([np.array([[0,0],[0,1]]) for t in times]))
+            
+            for t in times:
+                if cutoff[-1] != list(converted_data[t]['cutoff'])[-1]:
+                    # print('Cutoff values mismatch at time:', t)
+                    print(np.shape(np.array(converted_data[t]['dcdt(HM)'])))
+                    converted_data[t]['dcdt(HM)'] = converted_data[t]['dcdt(HM)'][:len(cutoff),:]
+                    converted_data[t]['dcdt(linear)'] = converted_data[t]['dcdt(linear)'][:len(cutoff),:]
+                    converted_data[t]['AIC(HM)'] = converted_data[t]['AIC(HM)'][:len(cutoff),:]
+                    converted_data[t]['AIC(linear)'] = converted_data[t]['AIC(linear)'][:len(cutoff),:]
+                    converted_data[t]['RMSE(HM)'] = converted_data[t]['RMSE(HM)'][:len(cutoff),:]
+                    converted_data[t]['RMSE(linear)'] = converted_data[t]['RMSE(linear)'][:len(cutoff),:]
+                    converted_data[t]['R2(HM)'] = converted_data[t]['R2(HM)'][:len(cutoff),:]
+                    converted_data[t]['R2(linear)'] = converted_data[t]['R2(linear)'][:len(cutoff),:]
+                    converted_data[t]['nRMSE(HM)'] = converted_data[t]['nRMSE(HM)'][:len(cutoff),:]
+                    converted_data[t]['nRMSE(linear)'] = converted_data[t]['nRMSE(linear)'][:len(cutoff),:]
+                else:
+                    pass
+            
+            
             for t in times:
                 if np.shape(np.array(converted_data[t]['dcdt(HM)'])) != (len(cutoff), len(deadband)):
                     print('Shape mismatch at time:', t)
                     print('Expected shape:', (len(cutoff), len(deadband)))
                     print('Actual shape:', np.shape(np.array(converted_data[t]['dcdt(HM)'])))
+                    print(converted_data[t]['deadband'])
+                    print(converted_data[t]['cutoff'])
                 else:
                     pass
-            print(np.array([converted_data[t]['dcdt(HM)'] for t in times]))
+            # print(np.array([converted_data[t]['dcdt(HM)'] for t in times]))
 
             print('test0')
 
@@ -113,7 +145,7 @@ class Multiprocessor:
             print('Error returning dataset:', e)
             return None
     
-    def run_MC(self, df, chamber_id, output_folder='./output'):
+    def run_MC(self, df, chamber_id, output_folder='./output', save_netcdf=False):
         print('Multiprocessing started')
         print('CPU core count:', mp.cpu_count())
         pool = mp.Pool(mp.cpu_count())
@@ -136,8 +168,47 @@ class Multiprocessor:
 
             converted_data = self.convert_keys_to_datetime(combined_results)
             times = list(converted_data.keys())
-            cutoff = list(converted_data[times[0]]['cutoff'])
-            deadband = list(converted_data[times[0]]['deadband'])
+            
+
+            for i,t in enumerate(times):
+                if i ==0:
+                    cutoff = list(converted_data[times[0]]['cutoff'])
+                    deadband = list(converted_data[times[0]]['deadband'])
+                    print('starting')
+                    print(cutoff, deadband)
+                else:
+                    if cutoff[-1] != list(converted_data[t]['cutoff'])[-1]:
+                        # print('Cutoff values mismatch at time:', t)
+                        print('here')
+                        if cutoff[-1] > list(converted_data[t]['cutoff'])[-1]:
+                            cutoff = list(converted_data[t]['cutoff'])
+                            print('New cutoff has smaller max value at time:', t)
+                        else:
+                            pass
+            
+            print(deadband, cutoff)
+            
+            for t in times:
+                if cutoff[-1] != list(converted_data[t]['cutoff'])[-1]:
+                    # print('Cutoff values mismatch at time:', t)
+                    print(np.shape(np.array(converted_data[t]['dcdt(HM)'])))
+                    converted_data[t]['dcdt(HM)'] = converted_data[t]['dcdt(HM)'][:len(cutoff),:,:]
+                    # converted_data[t]['dcdt(linear)'] = converted_data[t]['dcdt(linear)'][:len(cutoff),:,:]
+                    converted_data[t]['AIC(HM)'] = converted_data[t]['AIC(HM)'][:len(cutoff),:,:]
+                    # converted_data[t]['AIC(linear)'] = converted_data[t]['AIC(linear)'][:len(cutoff),:,:]
+                    converted_data[t]['RMSE(HM)'] = converted_data[t]['RMSE(HM)'][:len(cutoff),:,:]
+                    # converted_data[t]['RMSE(linear)'] = converted_data[t]['RMSE(linear)'][:len(cutoff),:,:]
+                    converted_data[t]['R2(HM)'] = converted_data[t]['R2(HM)'][:len(cutoff),:,:]
+                    # converted_data[t]['R2(linear)'] = converted_data[t]['R2(linear)'][:len(cutoff),:,:]
+                    converted_data[t]['nRMSE(HM)'] = converted_data[t]['nRMSE(HM)'][:len(cutoff),:,:]
+                    # converted_data[t]['nRMSE(linear)'] = converted_data[t]['nRMSE(linear)'][:len(cutoff),:,:]
+                    converted_data[t]['logprob(HM)'] = converted_data[t]['logprob(HM)'][:len(cutoff),:,:]
+                else:
+                    pass
+            
+            
+            # cutoff = list(converted_data[times[0]]['cutoff'])
+            # deadband = list(converted_data[times[0]]['deadband'])
             n_MC = list(converted_data[times[0]]['MC'])
             print(deadband, cutoff)
             # print(converted_data[times[0]]['dcdt(linear)'])
@@ -145,15 +216,15 @@ class Multiprocessor:
             ds = xr.Dataset(
                 {
                     'dcdt(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['dcdt(HM)'] for t in times], dtype=np.float32)),
-                    'dcdt(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['dcdt(linear)'] for t in times], dtype=np.float32)),
+                    # 'dcdt(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['dcdt(linear)'] for t in times], dtype=np.float32)),
                     'AIC(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['AIC(HM)'] for t in times], dtype=np.float32)),
-                    'AIC(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['AIC(linear)'] for t in times], dtype=np.float32)),
+                    # 'AIC(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['AIC(linear)'] for t in times], dtype=np.float32)),
                     'RMSE(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(HM)'] for t in times], dtype=np.float32)),
-                    'RMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(linear)'] for t in times], dtype=np.float32)),
+                    # 'RMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['RMSE(linear)'] for t in times], dtype=np.float32)),
                     'R2(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['R2(HM)'] for t in times], dtype=np.float32)),
-                    'R2(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['R2(linear)'] for t in times], dtype=np.float32)),
+                    # 'R2(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['R2(linear)'] for t in times], dtype=np.float32)),
                     'nRMSE(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['nRMSE(HM)'] for t in times], dtype=np.float32)),
-                    'nRMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['nRMSE(linear)'] for t in times], dtype=np.float32)),
+                    # 'nRMSE(linear)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['nRMSE(linear)'] for t in times], dtype=np.float32)),
                     'logprob(HM)': (['time',  'cutoff','deadband', 'MC'], np.array([converted_data[t]['logprob(HM)'] for t in times], dtype=np.float32)),
                 },
                 coords={
@@ -163,12 +234,16 @@ class Multiprocessor:
                     'MC': n_MC
                 }
             )
-
-            ds.to_netcdf(f'{output_folder}/{chamber_id}_{date}.nc')
-            print('NetCDF file saved')
+            
+            if save_netcdf:
+                ds.to_netcdf(f'{output_folder}/{chamber_id}_{date}.nc')
+            else:
+                pass
+            # print('NetCDF file saved')
+            self.select_bestPareto(ds=ds, chamber_id=chamber_id, date=date,output_folder=output_folder)
         return ds
 
-    def select_bestPareto(self, ds, chamber_id,output_folder=None):
+    def select_bestPareto(self, ds, chamber_id,date,output_folder=None):
         '''
         
         output: dataset with MCMC results from  the best pareto front
@@ -232,7 +307,7 @@ class Multiprocessor:
         )
 
         if output_folder is not None:
-            ds_best.to_netcdf(f'{output_folder}/{chamber_id}_bestPareto.nc')
+            ds_best.to_netcdf(f'{output_folder}/{chamber_id}_{date}_bestPareto.nc')
             print('Best pareto dataset saved to:', output_folder)
 
         return ds_best

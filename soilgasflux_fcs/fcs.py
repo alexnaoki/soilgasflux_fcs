@@ -204,50 +204,50 @@ class FCS:
                     traceback.print_exc()
                     print(f'Deadband: {deadband}, Cutoff: {cutoff}')
 
-                try:
-                    linear = LINEAR_model(raw_data=self.df_data, metadata=metadata)
-                    linear_results = linear.calculate_MC(deadband=deadband, cutoff=cutoff, n=n_MC)
-                    dc_dt, C_0, soilgasflux_CO2, deadband, cutoff = linear_results
-                    t = np.arange(deadband, cutoff, 1)
+                # try:
+                #     linear = LINEAR_model(raw_data=self.df_data, metadata=metadata)
+                #     linear_results = linear.calculate_MC(deadband=deadband, cutoff=cutoff, n=n_MC)
+                #     dc_dt, C_0, soilgasflux_CO2, deadband, cutoff = linear_results
+                #     t = np.arange(deadband, cutoff, 1)
                     
-                    if not isinstance(dc_dt, np.ndarray) or dc_dt.ndim == 1:
-                        dc_dt = np.array(dc_dt).reshape(n_MC, 1)
-                    if not isinstance(C_0, np.ndarray) or C_0.ndim == 1:
-                        C_0 = np.array(C_0).reshape(n_MC, 1)
+                #     if not isinstance(dc_dt, np.ndarray) or dc_dt.ndim == 1:
+                #         dc_dt = np.array(dc_dt).reshape(n_MC, 1)
+                #     if not isinstance(C_0, np.ndarray) or C_0.ndim == 1:
+                #         C_0 = np.array(C_0).reshape(n_MC, 1)
                     
-                    TT, NN = np.meshgrid(t, np.arange(n_MC))
+                #     TT, NN = np.meshgrid(t, np.arange(n_MC))
 
-                    linear_co2_MC = linear_model(t=TT, dcdt=dc_dt, c0=C_0)
-                    metrics = self.run_metrics(y_raw=self.df_data['k30_co2'].values[deadband:cutoff],
-                                               y_model=linear_co2_MC)
+                #     linear_co2_MC = linear_model(t=TT, dcdt=dc_dt, c0=C_0)
+                #     metrics = self.run_metrics(y_raw=self.df_data['k30_co2'].values[deadband:cutoff],
+                #                                y_model=linear_co2_MC)
 
-                    dc_dt = np.squeeze(dc_dt)
+                #     dc_dt = np.squeeze(dc_dt)
 
 
-                    results[f'{n}']['dcdt(linear)'][n_cutoff, n_deadband, :] = dc_dt
+                #     results[f'{n}']['dcdt(linear)'][n_cutoff, n_deadband, :] = dc_dt
 
-                    if isinstance(metrics['aic'], np.ndarray) and len(metrics['aic']) == n_MC:
-                        results[f'{n}']['AIC(linear)'][n_cutoff, n_deadband, :] = metrics['aic']
-                    else:
-                        results[f'{n}']['AIC(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['aic'])
-                    if isinstance(metrics['rmse'], np.ndarray) and len(metrics['rmse']) == n_MC:
-                        results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = metrics['rmse']
-                    else:
-                        results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['rmse'])
-                    if isinstance(metrics['r2'], np.ndarray) and len(metrics['r2']) == n_MC:
-                        results[f'{n}']['R2(linear)'][n_cutoff, n_deadband, :] = metrics['r2']
-                    else:
-                        results[f'{n}']['R2(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['r2'])
-                    if isinstance(metrics['nrmse'], np.ndarray) and len(metrics['nrmse']) == n_MC:
-                        results[f'{n}']['nRMSE(linear)'][n_cutoff, n_deadband, :] = metrics['nrmse']
-                    else:
-                        results[f'{n}']['nRMSE(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['nrmse'])
+                #     if isinstance(metrics['aic'], np.ndarray) and len(metrics['aic']) == n_MC:
+                #         results[f'{n}']['AIC(linear)'][n_cutoff, n_deadband, :] = metrics['aic']
+                #     else:
+                #         results[f'{n}']['AIC(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['aic'])
+                #     if isinstance(metrics['rmse'], np.ndarray) and len(metrics['rmse']) == n_MC:
+                #         results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = metrics['rmse']
+                #     else:
+                #         results[f'{n}']['RMSE(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['rmse'])
+                #     if isinstance(metrics['r2'], np.ndarray) and len(metrics['r2']) == n_MC:
+                #         results[f'{n}']['R2(linear)'][n_cutoff, n_deadband, :] = metrics['r2']
+                #     else:
+                #         results[f'{n}']['R2(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['r2'])
+                #     if isinstance(metrics['nrmse'], np.ndarray) and len(metrics['nrmse']) == n_MC:
+                #         results[f'{n}']['nRMSE(linear)'][n_cutoff, n_deadband, :] = metrics['nrmse']
+                #     else:
+                #         results[f'{n}']['nRMSE(linear)'][n_cutoff, n_deadband, :] = np.full(n_MC, metrics['nrmse'])
                     
                 
-                except Exception as e:
-                    print('ERROR LINEAR ####')
-                    print(e)
-                    print(f'Deadband: {deadband}, Cutoff: {cutoff}')
+                # except Exception as e:
+                #     print('ERROR LINEAR ####')
+                #     print(e)
+                #     print(f'Deadband: {deadband}, Cutoff: {cutoff}')
 
                     
                 
