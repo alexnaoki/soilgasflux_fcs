@@ -1,3 +1,47 @@
+Metadata-Version: 2.4
+Name: soilgasflux_fcs
+Version: 0.2.0
+Summary: Soil gas flux calculation from chamber CO2 measurements using the Hutchinson-Mosier model with MCMC uncertainty quantification and Pareto-optimal window selection.
+License: MIT License
+        
+        Copyright (c) 2025 Alex Naoki Asato Kobayashi
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+        
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.20
+Requires-Dist: pandas>=1.3
+Requires-Dist: scipy>=1.7
+Requires-Dist: xarray>=0.19
+Requires-Dist: matplotlib>=3.5
+Requires-Dist: emcee>=3.0
+Requires-Dist: lmfit>=1.0
+Requires-Dist: scikit-learn>=1.0
+Requires-Dist: netcdf4>=1.5
+Requires-Dist: seaborn>=0.11
+Provides-Extra: dev
+Requires-Dist: jupyter; extra == "dev"
+Requires-Dist: nbstripout; extra == "dev"
+Dynamic: license-file
+
 # soilgasflux_fcs
 
 A Python package for processing chamber CO₂ measurements to calculate soil gas flux using advanced mathematical models with uncertainty quantification.

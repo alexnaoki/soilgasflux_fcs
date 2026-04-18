@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "soilgasflux_fcs"
+version = "0.2.0"
+description = "Soil gas flux calculation from chamber CO2 measurements using the Hutchinson-Mosier model with MCMC uncertainty quantification and Pareto-optimal window selection."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+dependencies = [
+    "numpy>=1.20",
+    "pandas>=1.3",
+    "scipy>=1.7",
+    "xarray>=0.19",
+    "matplotlib>=3.5",
+    "emcee>=3.0",
+    "lmfit>=1.0",
+    "scikit-learn>=1.0",
+    "netcdf4>=1.5",
+    "seaborn>=0.11",
+]
+
+[project.optional-dependencies]
+dev = ["jupyter", "nbstripout"]
+
+[tool.setuptools.packages.find]
+include = ["soilgasflux_fcs*"]

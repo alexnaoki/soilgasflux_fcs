@@ -1,326 +1,125 @@
-import pathlib, json, os
-import matplotlib.pyplot as plt
-import numpy as np
-from sklearn.linear_model import LinearRegression
-from scipy import stats
-from scipy.optimize import curve_fit
-from lmfit import Model
-from lmfit import Parameters
-from lmfit import conf_interval2d, report_ci
-from sklearn.metrics import mean_squared_error
-import seaborn as sns
-from .mcmc import MCMC
 import warnings
-warnings.filterwarnings("ignore")
 
-class HM_model:
-    def __init__(self, raw_data, metadata, using_rpi=True):
-        self.area = metadata['area']
-        self.volume = metadata['volume']
-        self.using_rpi = using_rpi
-        if self.using_rpi:
-            # Metadata
+import numpy as np
+from lmfit import Model
 
-            try:
-                # Raw data
-                self.timestamp = raw_data['timedelta']
-            
-                # print('No timedelta')
-                self.temperature = raw_data['si_temperature']
-                self.humidity = raw_data['si_humidity']
-                
-                self.pressure = raw_data['bmp_pressure']/1000 #kPa
-                self.co2 = raw_data['k30_co2']
-            except Exception as e:
-                # print(e)
-                pass
-        else:
-            self.timestamp = raw_data['timestamp']
-            self.temperature = raw_data['chamber_t']
-            self.pressure = raw_data['chamber_p']
-            self.co2 = raw_data['co2']
-            self.X_h2o = raw_data['h2o']
-            
-        self._C_0 = None
-        self._a = None
-        self._t_0 = None
-        self._C_x = None
+from ._logging import get_logger
+from .base_model import BaseChamberModel
+from .mcmc import MCMC
+from .models import hm_model, hm_model_dcdt
 
-    def calculate_saturated_vapor_pressure(self, temperature):
-        '''
-        temperature: Celsius
-        '''
-        # Buck's equation
-        e_s = 0.61121*np.exp((18.678 - temperature/234.5)*(temperature/(257.14 + temperature))) # kPa
-        return e_s
-    
-    def mole_fraction_water_vapor(self, temperature, humidity, pressure):
-        e_s = self.calculate_saturated_vapor_pressure(temperature) #saturation vapor pressure in kPa
-        e = e_s * (humidity/100) # vapor pressure in kPa
-        
-        X_h2o = (e / pressure)*1000 # m mol/mol
-        return X_h2o
-    
-    def C_0_calculated(self, gas_concentration):
-        '''
-        gas_concentration: should be the around the first 10 points
-        '''
-        try:
-            n = np.shape(gas_concentration)[0]
-            gas_concentration = np.array(gas_concentration).reshape((n, 1))
-            x = np.arange(1,n+1).reshape((n, 1))
+warnings.filterwarnings('ignore')
+logger = get_logger(__name__)
 
-            regression = LinearRegression(fit_intercept=True)
-            regression.fit(x, gas_concentration)
-            
-            C_0 = regression.intercept_
-            # regression2 = stats.linregress(x.reshape(n), co2_ppm.reshape(n))
-        except Exception as e:
-            print(e)
-        
-        return C_0
+MCMC_WALKERS = 20
+MEASUREMENT_SIGMA_PPM = 1.5  # sensor precision used as MCMC yerr
 
-    
+
+class HM_model(BaseChamberModel):
     def target_function(self, t, cx, a, t0, c0):
-        e = 2.71828
-        return cx+(c0-cx)*e**(-a*(t-t0))
-    
+        return hm_model(t, cx, a, t0, c0)
+
     def dcdt(self, t_0, C_0, alpha, C_x, t):
-        e = 2.71828
-        dcdt = alpha*(C_x - C_0)*e**(-alpha*(t-t_0))
-        return dcdt
+        return hm_model_dcdt(t0=t_0, c0=C_0, a=alpha, cx=C_x, t=t)
 
+    def gas_eeflux(self, P0, W0, T0, dc_dt):
+        return self.gas_eeflux_v2(volume=self.volume, area=self.area,
+                                  P0=P0, W0=W0, T0=T0, dc_dt=dc_dt)
 
-
-    def gas_eeflux_v2(self, volume, area, P0, W0, T0, dc_dt):
-        R = 8.31446261815324 #J⋅K−1⋅mol−1
-        F_o = (10*volume*P0*(1-W0/1000))*dc_dt/(R*area*(T0+273.15))
-        return F_o
-
-    def fit_target_function_cutoff(self, t, gas_concentration, c_0, deadband, cutoff,display_results=True, pi=False):
+    def fit_target_function_cutoff(self, t, gas_concentration, c_0, deadband, cutoff,
+                                   display_results=True, pi=False):
         fmodel = Model(self.target_function)
         params = fmodel.make_params(cx=c_0, a=0.1, t0=0, c0=c_0)
         params['c0'].vary = False
-        params['t0'].vary=True
-
-        params['a'].min=0
-
-        # if c_0 >= np.max(gas_concentration[deadband:cutoff]):
-        #     params['cx'].max = c_0
-        # elif c_0 < np.max(gas_concentration[deadband:cutoff]):
-        #     params['cx'].min = c_0
-
-        params['t0'].max=cutoff
-        params['t0'].min=0
-        # params['cx'].max=10e5
-        # params['cx'].min=c_0
-        #params['t0'].vary=False
+        params['t0'].vary = True
+        params['a'].min = 0
+        params['t0'].max = cutoff
+        params['t0'].min = 0
 
         try:
-            if not pi:
-                result = fmodel.fit(gas_concentration[deadband:cutoff], params, t=t[deadband:cutoff])
-            else:
-                result = fmodel.fit(gas_concentration[deadband:cutoff], params, t=t[deadband:cutoff])
+            result = fmodel.fit(gas_concentration[deadband:cutoff], params, t=t[deadband:cutoff])
         except Exception as e:
-            print('Error in fitting the target function:')
-            print(e)
+            logger.warning('HM target fit failed: %s', e)
             return None
-        
 
-        
         try:
-            return {'parameters_best_fit':{'cx':result.params['cx'].value,
-                                           'a':result.params['a'].value,
-                                           't0':result.params['t0'].value,
-                                           'c0':c_0},
-                    # 'uncertainty':result.eval_uncertainty(result.params,sigma=1),
-                    'uncertainty': {'cx':result.params['cx'].stderr,
-                                    'a':result.params['a'].stderr,
-                                    't0':result.params['t0'].stderr},
-                    
-                    }
+            return {
+                'parameters_best_fit': {
+                    'cx': result.params['cx'].value,
+                    'a': result.params['a'].value,
+                    't0': result.params['t0'].value,
+                    'c0': c_0,
+                },
+                'uncertainty': {
+                    'cx': result.params['cx'].stderr,
+                    'a': result.params['a'].stderr,
+                    't0': result.params['t0'].stderr,
+                },
+            }
         except Exception as e:
-            print('Error in extracting the best fit parameters or uncertainty:')
-            print(e)
+            logger.warning('HM fit parameter extraction failed: %s', e)
             return None
 
-    
+    def _best_fit(self, deadband, cutoff):
+        C_0 = self.C_0_calculated(self.co2.values[:10])
+        result = self.fit_target_function_cutoff(
+            self.timestamp.values, self.co2.values,
+            np.float32(C_0)[0], deadband=deadband, cutoff=cutoff,
+        )
+        p = result['parameters_best_fit']
+        return C_0, p['cx'], p['a'], p['t0'], result
+
     def calculate(self, deadband, cutoff):
+        C_0, cx, a, t0, _ = self._best_fit(deadband, cutoff)
+        X_h2o = self._water_vapor_mmol()
+        t_window = self.timestamp[deadband:cutoff]
+        dc_dt = self.dcdt(t0, C_0, a, cx, t_window).mean()
+        soilgasflux_CO2 = self.gas_eeflux(
+            P0=self.pressure.values[0],
+            W0=X_h2o.values[0],
+            T0=self.temperature.values[0],
+            dc_dt=dc_dt,
+        )
+        return dc_dt, C_0, cx, a, t0, soilgasflux_CO2, deadband, cutoff
+
+    def calculate_MC(self, deadband, cutoff, n, sensor_precision=None):
         '''
-
+        sensor_precision: yerr (ppm) used in the MCMC likelihood. Defaults
+        to MEASUREMENT_SIGMA_PPM. Pass a scalar to override globally or an
+        array of length (cutoff - deadband) for a per-sample noise model.
         '''
-        if self.using_rpi:
-            X_h2o = self.mole_fraction_water_vapor(self.temperature, self.humidity, self.pressure)
-        else:
-            X_h2o = self.X_h2o
+        C_0, cx, a, t0, _ = self._best_fit(deadband, cutoff)
 
-        print('ok1')
-        C_0 = self.C_0_calculated(self.co2.values[:10])
-        print('ok2', C_0[0])
-        print('deadband:', deadband)
-        print('cutoff:', cutoff)
-        print(self.timestamp.values)
-        print(self.co2.values)
-        result_fit = self.fit_target_function_cutoff(self.timestamp.values, 
-                                                     self.co2.values, 
-                                                     np.float32(C_0)[0], 
-                                                     deadband=deadband, cutoff=cutoff, display_results=True)
-        print('ok3')
-        
-        cx = result_fit['parameters_best_fit']['cx']
-        a = result_fit['parameters_best_fit']['a']
-        t0 = result_fit['parameters_best_fit']['t0']
-        print('ok4')
-        # print('####')
-        # print('deadband:', deadband)
-        # print('cutoff:', cutoff)
-        # print('cx:', cx)
-        # print('a:', a)
-
-        print(self.pressure.values[0])
-        # print(self.pressure)
-        print(self.temperature.values[0])
-        print(X_h2o)
-
-        # temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
-        # pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
-        # humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
-
-        print('ok5')
-        fitted_y = self.target_function(t=self.timestamp.values[deadband:cutoff],
-                                        cx=cx,
-                                        a=a,
-                                        t0=t0,
-                                        c0=C_0)
-        fitted_x = self.timestamp.values[deadband:cutoff]
-        print('ok6')
-        
-        dc_dt = (self.dcdt(t0, C_0, a, cx, self.timestamp[deadband:cutoff])).mean()
-        print('ok7')
-        # print(dc_dt)
-        soilgasflux_CO2 = self.gas_eeflux_v2(volume=self.volume, 
-                                             area=self.area, 
-                                             P0=self.pressure.values[0], 
-                                             W0=X_h2o.values[0],
-                                             T0=self.temperature.values[0], 
-                                             dc_dt=dc_dt)
-        # print('dcdt:', dc_dt)        
-        # print('####')
-        print('ok8')
-
-        return dc_dt, C_0,cx, a, t0, soilgasflux_CO2, deadband, cutoff
-        # return dc_dt,soilgasflux_CO2, uncertainty, fitted_x,fitted_y, fitted_y_lower, fitted_y_higher, dc_dt_lower, dc_dt_higher, lower_ci, higher_ci, cx, a, t0, temperature_start, pressure_start, humidity_start,C_0[0]
-
-
-    def calculate_MC(self, deadband, cutoff, n):
-        '''
-        
-        '''
-        if self.using_rpi:
-            X_h2o = self.mole_fraction_water_vapor(self.temperature, self.humidity, self.pressure)
-        else:
-            X_h2o = self.X_h2o
-
-        C_0 = self.C_0_calculated(self.co2.values[:10])
-        
-        result_fit = self.fit_target_function_cutoff(self.timestamp.values, 
-                                                     self.co2.values, 
-                                                     np.float32(C_0)[0], 
-                                                     deadband=deadband, cutoff=cutoff, display_results=True)
-        
-        
-        cx = result_fit['parameters_best_fit']['cx']
-        a = result_fit['parameters_best_fit']['a']
-        t0 = result_fit['parameters_best_fit']['t0']
-
-        sigma_cx = result_fit['uncertainty']['cx']
-        sigma_a = result_fit['uncertainty']['a']
-        sigma_t0 = result_fit['uncertainty']['t0']
-
-        # cxMC = cx 
-        # aMC = a 
-        # t0MC = t0 + sigma_t0*np.random.normal(size=n)
-
-        # print('####')
-        # print('deadband:', deadband)
-        # print('cutoff:', cutoff)
-        # print('cx:', cx)
-        # print('a:', a)
-
-        # dcdt_bf = np.median((self.dcdt(t0, C_0, a, cx, self.timestamp[deadband:cutoff])))
-        dcdt_bf = self.dcdt(t0, C_0, a, cx, np.median(self.timestamp[deadband:cutoff]))
-        # print('dcdt_bf:', dcdt_bf)
-        # print(self.timestamp.values[deadband:cutoff])
-
-
+        sigma = MEASUREMENT_SIGMA_PPM if sensor_precision is None else sensor_precision
+        yerr = np.asarray(sigma) if np.ndim(sigma) else np.ones(cutoff - deadband) * sigma
 
         mcmc = MCMC()
-        sampler, flat_samples, logprob_samples = mcmc.run_mcmc(t=self.timestamp.values[deadband:cutoff], 
-                                              y=self.co2.values[deadband:cutoff], 
-                                            #   yerr=1.5, # measurement error 
-                                            yerr=np.ones(cutoff-deadband)*1.5, # measurement error
-                                              c0=C_0, 
-                                              cx_bf=cx, 
-                                              alpha_bf=a,
-                                              t0_bf=t0,
-                                              nwalkers=20, nsteps=n)
-        # print('autocorrelation time:', sampler.get_autocorr_time())
-        
-        timestamp = np.median(self.timestamp.values[deadband:cutoff])
-        
-        dcdt_mcmc = self.dcdt(t_0=flat_samples[:,2], C_0=C_0, 
-                              alpha=flat_samples[:,0], C_x=flat_samples[:,1], 
-                            #   t=self.timestamp[deadband:cutoff].mean()
-                            t=timestamp
-                              )
+        _, flat_samples, logprob_samples = mcmc.run_mcmc(
+            t=self.timestamp.values[deadband:cutoff],
+            y=self.co2.values[deadband:cutoff],
+            yerr=yerr,
+            c0=C_0, cx_bf=cx, alpha_bf=a, t0_bf=t0,
+            nwalkers=MCMC_WALKERS, nsteps=n,
+        )
 
-        dcdt_quantiles = np.quantile(dcdt_mcmc, [0.16, 0.5, 0.84])
-        dcdt_mcmc_filter = dcdt_mcmc[(dcdt_mcmc > dcdt_quantiles[0]) & (dcdt_mcmc < dcdt_quantiles[2])]
-        dcdt_mcmc_filter = dcdt_mcmc
+        t_median = np.median(self.timestamp.values[deadband:cutoff])
+        dcdt_mcmc = self.dcdt(t_0=flat_samples[:, 2], C_0=C_0,
+                              alpha=flat_samples[:, 0], C_x=flat_samples[:, 1],
+                              t=t_median)
 
-        # print(len(dcdt_mcmc_filter))
-        random_index = np.random.choice(len(dcdt_mcmc_filter), size=n) #n
-        # print(random_index)
+        random_index = np.random.choice(len(dcdt_mcmc), size=n)
+        dc_dtMC = dcdt_mcmc[random_index]
+        aMC = flat_samples[random_index, 0]
+        cxMC = flat_samples[random_index, 1]
+        t0MC = flat_samples[random_index, 2]
+        logprob_selected = logprob_samples[random_index]
 
-        dcdt_samples = dcdt_mcmc_filter[random_index]
-        logprob_selected_samples = logprob_samples[random_index]
+        X_h2o = self._water_vapor_mmol()
+        soilgasflux_CO2MC = self.gas_eeflux(
+            P0=self.pressure.head(1)[0],
+            W0=X_h2o.head(1)[0],
+            T0=self.temperature.head(1)[0],
+            dc_dt=dc_dtMC,
+        )
 
-        dc_dtMC = dcdt_samples
-        # aMC = flat_samples[random_index][:,0]
-        # cxMC = flat_samples[random_index][:,1]
-        aMC = flat_samples[random_index,0]
-        cxMC = flat_samples[random_index,1]
-        t0MC = flat_samples[random_index,2]
-        # print('cx_MC:',np.median(cxMC), '|',np.min(cxMC), '|',np.max(cxMC))
-        # print('a_MC:',np.median(aMC), '|',np.min(aMC), '|',np.max(aMC))
-        # print('t0_MC:',np.median(t0MC), '|',np.min(t0MC), '|',np.max(t0MC))
-        # print('dcdt_fromMedian', self.dcdt(t0MC, C_0, np.median(aMC), np.median(cxMC), self.timestamp[deadband:cutoff].mean()))
-
-        temperature_start = self.temperature[0]#, self.temperature[deadband],self.temperature[cutoff])
-        pressure_start = self.pressure[0]#, self.pressure[deadband],self.pressure[cutoff])
-        humidity_start = self.humidity[0]#, self.humidity[deadband],self.humidity[cutoff])
-
-        
-        # print('dcdtMC:', np.median(dc_dtMC), '|', np.min(dc_dtMC), '|', np.max(dc_dtMC))
-        # print('####')
-
-        # fitted_y = self.target_function(t=self.timestamp.values[deadband:cutoff],
-        #                                 cx=cx,
-        #                                 a=a,
-        #                                 t0=t0,
-        #                                 c0=C_0)
-        # fitted_x = self.timestamp.values[deadband:cutoff]
-        
-        
-        # dc_dt = (self.dcdt(t0, C_0, a, cx, self.timestamp)).mean()
-        # dc_dtMC = self.dcdt(t0MC, C_0, aMC, cxMC, self.timestamp[deadband:cutoff].mean())
-        
-        soilgasflux_CO2MC = self.gas_eeflux_v2(volume=self.volume, 
-                                             area=self.area, 
-                                             P0=self.pressure.head(1)[0], 
-                                             W0=X_h2o.head(1)[0],
-                                             T0=self.temperature.head(1)[0], 
-                                             dc_dt=dc_dtMC)
-        
-
-        return dc_dtMC, C_0,cxMC, aMC, t0MC, soilgasflux_CO2MC, deadband, cutoff, logprob_selected_samples
+        return dc_dtMC, C_0, cxMC, aMC, t0MC, soilgasflux_CO2MC, deadband, cutoff, logprob_selected
