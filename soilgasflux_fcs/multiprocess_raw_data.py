@@ -110,19 +110,21 @@ class Multiprocessor:
         return ds
 
     def run_MC(self, df, chamber_id, output_folder='./output', save_netcdf=False,
-               sensor_precision=None):
+               sensor_precision=None, n_MC=None):
         '''
         sensor_precision: yerr (ppm) used in the MCMC likelihood. If None, the
         HM_model default (MEASUREMENT_SIGMA_PPM) is used. Scalar only in the
         multiprocessing path.
+        n_MC: number of MCMC samples per fit. If None, uses DEFAULT_N_MC.
         '''
+        n_MC = DEFAULT_N_MC if n_MC is None else n_MC
         logger.info('Multiprocessing (MC) started on %d CPUs', mp.cpu_count())
         with mp.Pool(mp.cpu_count()) as pool:
             ds = None
             for date in df['datetime'].dt.date.unique():
                 logger.info('Processing date %s', date)
                 df_1day = df[df['datetime'].dt.date == date]
-                converted = self._run_day(df_1day, mc=True, n_MC=DEFAULT_N_MC,
+                converted = self._run_day(df_1day, mc=True, n_MC=n_MC,
                                           metadata=DEFAULT_METADATA, pool=pool,
                                           sensor_precision=sensor_precision)
                 ds = self._build_dataset_3d(converted)
@@ -151,7 +153,7 @@ class Multiprocessor:
                 best_x, best_y = pa.get_best_from_pareto(
                     pareto_indices=pareto_indices, metric_x=norm_u, metric_y=norm_l,
                 )
-            except (ValueError, IndexError) as e:
+            except (ValueError, IndexError, TypeError) as e:
                 logger.warning('Pareto front not found at time %s: %s', time, e)
                 continue
 

@@ -58,7 +58,7 @@ class Pareto:
             if not dominated:
                 pareto_indices.append(i)
 
-        return np.array(pareto_indices)
+        return np.array(pareto_indices, dtype=int)
 
     def get_coords_pareto(self, pareto_indices):
         shape = self.dsMC.median(dim=['MC'])['dcdt(HM)'].shape
