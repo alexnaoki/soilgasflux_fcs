@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import multiprocessing as mp
 
 import numpy as np
@@ -9,6 +10,24 @@ from .fcs import FCS
 from .pareto import Pareto
 
 logger = get_logger(__name__)
+
+
+def _init_worker_logging(log_path):
+    # Runs once per worker process. Attaches a FileHandler pointing at the shared
+    # log so worker records (including tracebacks from _process_id_wrapper) land
+    # in the log file, not the parent's stderr (which Jupyter surfaces in the
+    # notebook). Defensively strips any StreamHandler on the package logger in
+    # case an application configured one.
+    pkg_logger = logging.getLogger('soilgasflux_fcs')
+    for h in list(pkg_logger.handlers):
+        if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler):
+            pkg_logger.removeHandler(h)
+    fh = logging.FileHandler(log_path, mode='a')
+    fh.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)-7s pid=%(process)d %(name)s: %(message)s'))
+    pkg_logger.addHandler(fh)
+    pkg_logger.setLevel(logging.INFO)
+    pkg_logger.propagate = False
 
 DEFAULT_METADATA = {'area': 314, 'volume': 6283}
 DEFAULT_WINDOW_WALK = 10
@@ -95,9 +114,13 @@ class Multiprocessor:
         return xr.Dataset(data_vars, coords={'time': times, 'deadband': deadband,
                                              'cutoff': cutoff, 'MC': n_MC})
 
-    def run(self, df, chamber_id, output_folder='./output'):
+    def run(self, df, chamber_id, output_folder='./output', log_path=None):
         logger.info('Multiprocessing started on %d CPUs', mp.cpu_count())
-        with mp.Pool(mp.cpu_count()) as pool:
+        pool_kwargs = {}
+        if log_path is not None:
+            pool_kwargs = {'initializer': _init_worker_logging,
+                           'initargs': (str(log_path),)}
+        with mp.Pool(mp.cpu_count(), **pool_kwargs) as pool:
             ds = None
             for date in df['datetime'].dt.date.unique():
                 logger.info('Processing date %s', date)
@@ -110,16 +133,23 @@ class Multiprocessor:
         return ds
 
     def run_MC(self, df, chamber_id, output_folder='./output', save_netcdf=False,
-               sensor_precision=None, n_MC=None):
+               sensor_precision=None, n_MC=None, log_path=None):
         '''
         sensor_precision: yerr (ppm) used in the MCMC likelihood. If None, the
         HM_model default (MEASUREMENT_SIGMA_PPM) is used. Scalar only in the
         multiprocessing path.
         n_MC: number of MCMC samples per fit. If None, uses DEFAULT_N_MC.
+        log_path: if given, worker processes redirect soilgasflux_fcs logs to
+        this shared log file (append mode) instead of stderr. Lets the caller
+        capture per-id failures in the log rather than the notebook output.
         '''
         n_MC = DEFAULT_N_MC if n_MC is None else n_MC
         logger.info('Multiprocessing (MC) started on %d CPUs', mp.cpu_count())
-        with mp.Pool(mp.cpu_count()) as pool:
+        pool_kwargs = {}
+        if log_path is not None:
+            pool_kwargs = {'initializer': _init_worker_logging,
+                           'initargs': (str(log_path),)}
+        with mp.Pool(mp.cpu_count(), **pool_kwargs) as pool:
             ds = None
             for date in df['datetime'].dt.date.unique():
                 logger.info('Processing date %s', date)
@@ -183,5 +213,11 @@ class Multiprocessor:
 
 def _process_id_wrapper(df, id, max_cutoff, mc, n_MC, metadata, sensor_precision=None):
     # Top-level wrapper so starmap can pickle it.
-    return _process_id(df, id, max_cutoff=max_cutoff, mc=mc, n_MC=n_MC,
-                       metadata=metadata, sensor_precision=sensor_precision)
+    try:
+        return _process_id(df, id, max_cutoff=max_cutoff, mc=mc, n_MC=n_MC,
+                           metadata=metadata, sensor_precision=sensor_precision)
+    except Exception:
+        # log the full traceback attributed to this id, then re-raise so the
+        # parent knows the task failed.
+        logger.exception('worker failed on id=%s', id)
+        raise
