@@ -13,10 +13,11 @@ soilgasflux_fcs/metrics.py
 soilgasflux_fcs/models.py
 soilgasflux_fcs/multiprocess_raw_data.py
 soilgasflux_fcs/pareto.py
-soilgasflux_fcs/simulate_sensor.py
-soilgasflux_fcs/synthetic_create.py
-soilgasflux_fcs/synthetic_postProcessing.py
 soilgasflux_fcs/visualization.py
+synthetic/__init__.py
+synthetic/simulate_sensor.py
+synthetic/synthetic_create.py
+synthetic/synthetic_postProcessing.py
 soilgasflux_fcs.egg-info/PKG-INFO
 soilgasflux_fcs.egg-info/SOURCES.txt
 soilgasflux_fcs.egg-info/dependency_links.txt
@@ -25,4 +26,3 @@ soilgasflux_fcs.egg-info/top_level.txt
 soilgasflux_fcs/analysis/__init__.py
 soilgasflux_fcs/core/__init__.py
 soilgasflux_fcs/io/__init__.py
-soilgasflux_fcs/synthetic/__init__.py

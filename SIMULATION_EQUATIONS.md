@@ -1,6 +1,6 @@
 # Soil Gas Flux Chamber Simulation - Mathematical Framework
 
-This document describes the mathematical equations and physical processes used in the `simulate_sensor.py` module for simulating gas flux measurements in a chamber-sensor system.
+This document describes the mathematical equations and physical processes used in the `synthetic/simulate_sensor.py` module for simulating gas flux measurements in a chamber-sensor system.
 
 ---
 

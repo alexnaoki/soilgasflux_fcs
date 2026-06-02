@@ -1,2 +1,5 @@
 *.pyc
 *.nc
+notebooks/synthetic/generated/
+notebooks/synthetic/figures/*.png
+!notebooks/synthetic/figures/synthetic_data.png

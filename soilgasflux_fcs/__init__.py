@@ -4,9 +4,6 @@ from . import (
     metrics,
     mcmc,
     multiprocess_raw_data,
-    simulate_sensor,
-    synthetic_create,
-    synthetic_postProcessing,
     visualization,
 )
 from .base_model import BaseChamberModel
@@ -28,8 +25,5 @@ __all__ = [
     'metrics',
     'mcmc',
     'multiprocess_raw_data',
-    'simulate_sensor',
-    'synthetic_create',
-    'synthetic_postProcessing',
     'visualization',
 ]

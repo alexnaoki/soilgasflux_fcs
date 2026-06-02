@@ -39,6 +39,7 @@ Requires-Dist: netcdf4>=1.5
 Requires-Dist: seaborn>=0.11
 Provides-Extra: dev
 Requires-Dist: jupyter; extra == "dev"
+Requires-Dist: ipywidgets; extra == "dev"
 Requires-Dist: nbstripout; extra == "dev"
 Dynamic: license-file
 
@@ -92,17 +93,17 @@ All dependencies are declared in `pyproject.toml` and installed automatically.
 
 ### Package layout
 
-Canonical modules live at the package root. Organizational subpackages (`core`, `io`, `analysis`, `synthetic`) re-export the same objects for readability in new code. Both styles work:
+FCS processing code lives in the `soilgasflux_fcs` package. Synthetic data helpers live separately in the top-level `synthetic` package so generated test-data workflows are kept apart from production processing code:
 
 ```python
 # Flat (notebooks use this)
 from soilgasflux_fcs import FCS, HM_model, LINEAR_model, Pareto, json_reader
 
-# Organized (optional)
+# Organized
 from soilgasflux_fcs.core import FCS, HM_model, LINEAR_model
 from soilgasflux_fcs.analysis import Pareto
 from soilgasflux_fcs.io import Initializer, Multiprocessor
-from soilgasflux_fcs.synthetic import Generator, Simulate_Sensor
+from synthetic import Generator, Simulate_Sensor
 ```
 
 ### Logging
@@ -306,10 +307,10 @@ Generate synthetic chamber measurements for testing and validation.
 ### 2.1. Basic Synthetic Data
 
 ```python
-from soilgasflux_fcs import synthetic_create
+from synthetic import Generator
 
 # Create generator
-generator = synthetic_create.Generator(total_time=180, c0=430)
+generator = Generator(total_time=180, c0=430)
 
 # Generate synthetic measurement
 config = generator.generate_base(
@@ -331,7 +332,8 @@ generator.create_selected(
 Simulate realistic sensor response including physical transport and measurement artifacts.
 
 ```python
-from soilgasflux_fcs import simulate_sensor
+import numpy as np
+from synthetic import simulate_sensor
 
 # Initialize sensor simulator
 sim = simulate_sensor.Simulate_Sensor(
@@ -341,7 +343,14 @@ sim = simulate_sensor.Simulate_Sensor(
 
 # Configure system
 sim.chamber_settings(area=314, chamber_volume=6283)
-sim.gasAnalyzer_settings(response_time=10, sensor_accuracy=0.1)
+sim.gasAnalyzer_settings(
+    response_time=10,
+    gasAnalyzer_volume=50,
+    sensor_accuracy=0.1,
+    sensor_precision=0.5,
+)
+sim.internal_pump_settings(pump_volume=25, pump_rate=250)
+sim.additional_settings(volume=25)
 
 # Run simulation
 source_flux = np.ones(120) * 1.0  # 1 ppm/s
@@ -353,4 +362,3 @@ final_concentration = sim.run_simulation(source_ppm=source_flux)
 - Gas analyzer response time and accuracy
 - Internal pumping system
 - Environmental conditions
-

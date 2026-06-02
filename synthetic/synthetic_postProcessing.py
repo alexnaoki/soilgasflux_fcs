@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pandas as pd
 import xarray as xr
-from .models import hm_model, linear_model, hm_model_dcdt
+from soilgasflux_fcs.models import hm_model, linear_model, hm_model_dcdt
 from soilgasflux_fcs import json_reader
 
 class Synthetic:
@@ -118,6 +118,4 @@ class Synthetic:
         print(rowFirst)
 
         return rowFirst['alpha'].values[0], rowFirst['c_s'].values[0], rowFirst['c_c0'].values[0], rowFirst['deadband'].values[0], rowFirst['disturbance_intensity'].values[0], rowFirst['disturbance_starting_point'].values[0], rowFirst['add_noise'].values[0],rowFirst['bmp_pressure'].values[0], rowFirst['bmp_temperature'].values[0], rowFirst['si_humidity'].values[0], rowFirst['curvature'].values[0]
-
-
 

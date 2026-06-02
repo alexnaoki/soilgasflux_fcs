@@ -337,18 +337,14 @@ class Simulate_Sensor:
                     continue
 
             # To be pumped from chamber
+            chamber_nodes_volume = np.ones(self.chamber_nodes)*self.elements['chamber']['volume'][0]/self.chamber_nodes
+            volume_pumped_from_nodes = np.zeros(self.chamber_nodes)
+            mass_pumped_from_nodes = np.zeros(self.chamber_nodes)
+            self.elements['chamber']['gas_mass'][t+1, :] = self.elements['chamber']['gas_mass'][t, :]
             if pumped_volume < self.pump_rate*self.dt:
                 # print('chamber pump')
                 need_to_pump = self.pump_rate*self.dt - pumped_volume
 
-                chamber_nodes_volume = np.ones(self.chamber_nodes)*self.elements['chamber']['volume'][0]/self.chamber_nodes
-
-                # Initialize arrays to track pumping
-                volume_pumped_from_nodes = np.zeros(self.chamber_nodes)
-                mass_pumped_from_nodes = np.zeros(self.chamber_nodes)
-                
-                
-                self.elements['chamber']['gas_mass'][t+1, :] = self.elements['chamber']['gas_mass'][t, :]
                 # Start from the last node (typically closest to the outlet)
                 for n in range(self.chamber_nodes-1, -1, -1):
                     if need_to_pump <= 0:

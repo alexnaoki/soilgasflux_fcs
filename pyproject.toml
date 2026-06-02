@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["jupyter", "nbstripout"]
+dev = ["jupyter", "ipywidgets", "nbstripout"]
 
 [tool.setuptools.packages.find]
-include = ["soilgasflux_fcs*"]
+include = ["soilgasflux_fcs*", "synthetic*"]
