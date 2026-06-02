@@ -7,13 +7,15 @@ class Pareto:
         self.deadband_coords = dsMC.coords['deadband'].values
         self.cutoff_cords = dsMC.coords['cutoff'].values
 
-    def prepare_metrics(self):
+    def prepare_metrics(self, normalize=True):
         '''
         Builds the two-objective space:
             metric_x: 68% uncertainty range of dcdt(HM)
             metric_y: -median logprob(HM) (so lower is better)
 
-        Returns both the 2D (cutoff, deadband) and flattened normalized arrays.
+        Returns the 2D (cutoff, deadband) and flattened arrays. If
+        ``normalize`` is True (default), values are min-max scaled to [0, 1];
+        otherwise raw values are returned.
         '''
         dsMC = self.dsMC
         uncertaintyRange = dsMC.quantile(0.84, dim=['MC'])['dcdt(HM)'] - dsMC.quantile(0.16, dim=['MC'])['dcdt(HM)']
@@ -25,15 +27,24 @@ class Pareto:
 
         u = uncertaintyRange.values
         l = logprob.values
-        norm_u = (u - np.nanmin(u)) / (np.nanmax(u) - np.nanmin(u))
-        norm_l = (l - np.nanmin(l)) / (np.nanmax(l) - np.nanmin(l))
+
+        if normalize:
+            u_2d = (u - np.nanmin(u)) / (np.nanmax(u) - np.nanmin(u))
+            l_2d = (l - np.nanmin(l)) / (np.nanmax(l) - np.nanmin(l))
+        else:
+            u_2d = u
+            l_2d = l
 
         u_flat = u.flatten()
         l_flat = l.flatten()
-        flat_norm_u = (u_flat - np.nanmin(u_flat)) / (np.nanmax(u_flat) - np.nanmin(u_flat))
-        flat_norm_l = (l_flat - np.nanmin(l_flat)) / (np.nanmax(l_flat) - np.nanmin(l_flat))
+        if normalize:
+            flat_u = (u_flat - np.nanmin(u_flat)) / (np.nanmax(u_flat) - np.nanmin(u_flat))
+            flat_l = (l_flat - np.nanmin(l_flat)) / (np.nanmax(l_flat) - np.nanmin(l_flat))
+        else:
+            flat_u = u_flat
+            flat_l = l_flat
 
-        return norm_u, norm_l, flat_norm_u, flat_norm_l
+        return u_2d, l_2d, flat_u, flat_l
 
     def find_pareto_front(self, x, y, maximize_x=False, maximize_y=False):
         '''
