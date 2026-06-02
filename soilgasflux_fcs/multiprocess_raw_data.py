@@ -37,8 +37,21 @@ DEFAULT_MAX_DEADBAND = 60
 DEFAULT_N_MC = 8000
 
 
-def _convert_keys_to_datetime(data):
-    return {dt.datetime.strptime(k, '%Y-%m-%d_%H-%M-%S'): v for k, v in data.items()}
+def _convert_keys_to_datetime(data, id_to_datetime=None):
+    id_to_datetime = id_to_datetime or {}
+    converted = {}
+    for k, v in data.items():
+        try:
+            timestamp = dt.datetime.strptime(k, '%Y-%m-%d_%H-%M-%S')
+        except ValueError:
+            if k not in id_to_datetime:
+                raise ValueError(
+                    f"Measurement id {k!r} is not timestamp-formatted and "
+                    "no datetime mapping was provided."
+                )
+            timestamp = id_to_datetime[k]
+        converted[timestamp] = v
+    return converted
 
 
 def _process_id(df, id, *, max_cutoff, mc, n_MC, metadata, sensor_precision=None):
@@ -76,11 +89,16 @@ class Multiprocessor:
 
     def _run_day(self, df_1day, *, mc, n_MC, metadata, pool, sensor_precision=None):
         max_cutoff = df_1day['timedelta'].max()
+        id_to_datetime = (
+            df_1day.groupby('id')['datetime'].min()
+            .apply(lambda value: value.to_pydatetime())
+            .to_dict()
+        )
         args = [(df_1day, n, max_cutoff, mc, n_MC, metadata, sensor_precision)
                 for n in df_1day['id'].unique()]
         results = pool.starmap(_process_id_wrapper, args)
         combined = {k: v for result in results for k, v in result.items()}
-        return _convert_keys_to_datetime(combined)
+        return _convert_keys_to_datetime(combined, id_to_datetime=id_to_datetime)
 
     def _build_dataset_2d(self, converted_data):
         times = list(converted_data.keys())
@@ -114,7 +132,9 @@ class Multiprocessor:
         return xr.Dataset(data_vars, coords={'time': times, 'deadband': deadband,
                                              'cutoff': cutoff, 'MC': n_MC})
 
-    def run(self, df, chamber_id, output_folder='./output', log_path=None):
+    def run(self, df, chamber_id, output_folder='./output', metadata=None,
+            log_path=None):
+        metadata = DEFAULT_METADATA if metadata is None else metadata
         logger.info('Multiprocessing started on %d CPUs', mp.cpu_count())
         pool_kwargs = {}
         if log_path is not None:
@@ -126,24 +146,27 @@ class Multiprocessor:
                 logger.info('Processing date %s', date)
                 df_1day = df[df['datetime'].dt.date == date]
                 converted = self._run_day(df_1day, mc=False, n_MC=None,
-                                          metadata=DEFAULT_METADATA, pool=pool)
+                                          metadata=metadata, pool=pool)
                 ds = self._build_dataset_2d(converted)
                 ds.to_netcdf(f'{output_folder}/{chamber_id}_{date}.nc')
                 logger.info('Saved NetCDF for %s', date)
         return ds
 
     def run_MC(self, df, chamber_id, output_folder='./output', save_netcdf=False,
-               sensor_precision=None, n_MC=None, log_path=None):
+               sensor_precision=None, n_MC=None, metadata=None, log_path=None):
         '''
         sensor_precision: yerr (ppm) used in the MCMC likelihood. If None, the
         HM_model default (MEASUREMENT_SIGMA_PPM) is used. Scalar only in the
         multiprocessing path.
         n_MC: number of MCMC samples per fit. If None, uses DEFAULT_N_MC.
+        metadata: chamber geometry dictionary with area [cm^2] and volume
+        [cm^3]. If None, uses DEFAULT_METADATA.
         log_path: if given, worker processes redirect soilgasflux_fcs logs to
         this shared log file (append mode) instead of stderr. Lets the caller
         capture per-id failures in the log rather than the notebook output.
         '''
         n_MC = DEFAULT_N_MC if n_MC is None else n_MC
+        metadata = DEFAULT_METADATA if metadata is None else metadata
         logger.info('Multiprocessing (MC) started on %d CPUs', mp.cpu_count())
         pool_kwargs = {}
         if log_path is not None:
@@ -155,7 +178,7 @@ class Multiprocessor:
                 logger.info('Processing date %s', date)
                 df_1day = df[df['datetime'].dt.date == date]
                 converted = self._run_day(df_1day, mc=True, n_MC=n_MC,
-                                          metadata=DEFAULT_METADATA, pool=pool,
+                                          metadata=metadata, pool=pool,
                                           sensor_precision=sensor_precision)
                 ds = self._build_dataset_3d(converted)
                 if save_netcdf:
