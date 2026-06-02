@@ -3,3 +3,6 @@
 notebooks/synthetic/generated/
 notebooks/synthetic/figures/*.png
 !notebooks/synthetic/figures/synthetic_data.png
+notebooks/processing/output/
+notebooks/post_processing/figures/*.png
+notebooks/post_processing/data/
