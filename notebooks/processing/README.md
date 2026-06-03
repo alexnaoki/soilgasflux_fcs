@@ -4,7 +4,8 @@ This folder contains notebooks for turning raw chamber measurements into FCS pro
 
 ## Recommended Notebook
 
-- `01_process_raw_data.ipynb` is the main user-facing workflow. It can load the current JSON-folder format or generic CSV files, map user-specific column names into the canonical FCS schema, preview the data, and run standard FCS processing with optional MCMC.
+- `01_process_raw_data.ipynb` is the main widget-based workflow. It can load the current JSON-folder format or generic CSV files, map user-specific column names into the canonical FCS schema, preview the data, and run standard FCS processing with optional MCMC.
+- `02_process_raw_data_plain_python.ipynb` is the coder-friendly workflow. It has no widgets; edit the configuration variables, then run the cells top to bottom.
 
 ## Legacy Notebooks
 
