@@ -1,8 +1,8 @@
 *.pyc
 *.nc
-notebooks/synthetic/generated/
-notebooks/synthetic/figures/*.png
-!notebooks/synthetic/figures/synthetic_data.png
+notebooks/synthetic_create/generated/
+notebooks/synthetic_create/figures/*.png
+!notebooks/synthetic_create/figures/synthetic_data.png
 notebooks/processing/output/
-notebooks/post_processing/figures/*.png
+notebooks/post_processing/figures/
 notebooks/post_processing/data/
