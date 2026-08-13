@@ -65,6 +65,34 @@ python -m pip install -e ".[dev]"
 
 All package dependencies are declared in `pyproject.toml` and installed automatically. Python 3.9 or newer, including its standard `venv` module, must already be available.
 
+### Conda installation
+
+If Conda is already installed, clone the repository and source the Conda installer from its root:
+
+```bash
+git clone https://github.com/alexnaoki/soilgasflux_fcs.git
+cd soilgasflux_fcs
+source installation_conda.txt
+```
+
+This creates or updates the `soilgasflux_fcs` environment from `environment.yml`, activates it in the current Bash or Zsh terminal, and verifies that the package imports successfully. Conda installs the scientific and notebook dependencies from `conda-forge`; pip is used only inside that managed environment to install this local repository as an editable package.
+
+Reactivate the environment later with:
+
+```bash
+conda activate soilgasflux_fcs
+```
+
+From Windows Anaconda Prompt or PowerShell, run:
+
+```powershell
+conda env create --file environment.yml
+conda activate soilgasflux_fcs
+python -c "import soilgasflux_fcs; print('soilgasflux_fcs is installed')"
+```
+
+If the environment already exists and `environment.yml` has changed, synchronize it with `conda env update --file environment.yml --prune`.
+
 ### Package layout
 
 FCS processing code lives in the `soilgasflux_fcs` package. Synthetic data helpers live separately in the top-level `synthetic` package so generated test-data workflows are kept apart from production processing code:

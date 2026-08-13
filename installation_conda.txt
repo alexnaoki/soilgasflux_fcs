@@ -1,0 +1,49 @@
+# Run this file from the repository root in Bash or Zsh:
+# source installation_conda.txt
+#
+# Conda creates the environment and installs its dependencies. The environment
+# then uses pip only to install this local repository in editable mode, as
+# configured by environment.yml.
+
+test -f pyproject.toml && test -f environment.yml || {
+    echo "Error: run 'source installation_conda.txt' from the soilgasflux_fcs repository root."
+    return 1 2>/dev/null || exit 1
+}
+
+if ! command -v conda >/dev/null 2>&1; then
+    echo "Error: Conda is not available. Install Miniconda or Anaconda first."
+    return 1 2>/dev/null || exit 1
+fi
+
+if [ -n "${ZSH_VERSION:-}" ]; then
+    eval "$(conda shell.zsh hook)"
+else
+    eval "$(conda shell.bash hook)"
+fi
+
+if conda env list | awk 'NF && $1 !~ /^#/ {print $1}' | grep -Fxq "soilgasflux_fcs"; then
+    FCS_CONDA_ACTION="update"
+    conda env update --file environment.yml --prune
+else
+    FCS_CONDA_ACTION="create"
+    conda env create --file environment.yml
+fi
+
+if [ "$?" -ne 0 ]; then
+    echo "Error: Conda could not $FCS_CONDA_ACTION the soilgasflux_fcs environment."
+    unset FCS_CONDA_ACTION
+    return 1 2>/dev/null || exit 1
+fi
+
+conda activate soilgasflux_fcs || {
+    echo "Error: Conda created the environment but could not activate it."
+    return 1 2>/dev/null || exit 1
+}
+
+python -c "import soilgasflux_fcs; print('soilgasflux_fcs import check passed')" || {
+    echo "Error: the package import check failed."
+    return 1 2>/dev/null || exit 1
+}
+
+unset FCS_CONDA_ACTION
+echo "Installation complete. The soilgasflux_fcs Conda environment is active."
