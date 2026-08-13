@@ -7,6 +7,7 @@ This folder contains notebooks for inspecting processed NetCDF outputs, reproduc
 - `01_browse_processed_netcdf.ipynb` is the main user-facing browser for processed `.nc` files. Use it to select a folder, choose one or more files, inspect the detected schema, and plot individual measurements.
 - `02_paper_pareto_lowcost_vs_commercial.ipynb` is the clean paper workflow for synthetic low-cost vs commercial sensor Pareto figures. It expects processed synthetic outputs in `data/` by default, or a user-provided processed-output folder.
 - `03_pareto_lowcost_vs_commercial.ipynb` is the run-aware paper workflow for outputs from `processing/03_process_synthetic_batch.ipynb`. It discovers files through the processing manifest, groups scenarios from NetCDF coordinates, and saves the Pareto and split-violin figures under the same run ID.
+- `04_plot_dcdt_timeseries.ipynb` is the interactive dC/dt timeseries viewer. Enter a processed-results folder, explicitly select standard or best-Pareto MCMC files in separate tabs, filter by timestamp and y range, and optionally apply a time-based moving-window mean. Repeated timestamps are merged with a visible warning. Standard files expose deadband and cutoff selectors; MCMC files show the posterior median with a 16–84% interval.
 
 ## Legacy Notebooks
 
