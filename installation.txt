@@ -1,0 +1,31 @@
+# Run this file from the repository root in Bash or Zsh:
+# source installation.txt
+#
+# It creates and activates .venv, then uses pip as the only package installer.
+
+test -f pyproject.toml || {
+    echo "Error: run 'source installation.txt' from the soilgasflux_fcs repository root."
+    return 1 2>/dev/null || exit 1
+}
+
+if command -v python3 >/dev/null 2>&1; then
+    FCS_PYTHON_BIN=python3
+elif command -v python >/dev/null 2>&1; then
+    FCS_PYTHON_BIN=python
+else
+    echo "Error: Python 3.9 or newer is required."
+    return 1 2>/dev/null || exit 1
+fi
+
+"$FCS_PYTHON_BIN" -m venv .venv || {
+    echo "Error: Python could not create the .venv virtual environment."
+    unset FCS_PYTHON_BIN
+    return 1 2>/dev/null || exit 1
+}
+
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+
+unset FCS_PYTHON_BIN
+echo "Installation complete. The .venv environment is active in this terminal."

@@ -36,15 +36,34 @@ netcdf4                  # For NetCDF file support with xarray
 
 ## Installation
 
-### Install from source
+### Recommended terminal installation (pip only)
+
+Clone the repository, enter its folder, and source the provided installation file:
 
 ```bash
-git clone https://github.com/yourusername/soilgasflux_fcs.git
+git clone https://github.com/alexnaoki/soilgasflux_fcs.git
 cd soilgasflux_fcs
-pip install -e .
+source installation.txt
 ```
 
-All dependencies are declared in `pyproject.toml` and installed automatically.
+`installation.txt` is intended for macOS and Linux terminals using Bash or Zsh. It creates `.venv`, activates it in the current terminal, upgrades pip, and installs the package with its notebook/development dependencies. It does not use Conda, Mamba, or another package manager.
+
+When returning to the project later, reactivate the environment with:
+
+```bash
+source .venv/bin/activate
+```
+
+For Windows PowerShell, perform the equivalent pip-only installation manually:
+
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+All package dependencies are declared in `pyproject.toml` and installed automatically. Python 3.9 or newer, including its standard `venv` module, must already be available.
 
 ### Package layout
 
