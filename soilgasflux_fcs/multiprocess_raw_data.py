@@ -1,6 +1,7 @@
 import datetime as dt
 import logging
 import multiprocessing as mp
+import os
 
 import numpy as np
 import xarray as xr
@@ -54,6 +55,40 @@ def _convert_keys_to_datetime(data, id_to_datetime=None):
     return converted
 
 
+def _id_to_datetime(df_1day):
+    return (
+        df_1day.groupby('id')['datetime'].min()
+        .apply(lambda value: value.to_pydatetime())
+        .to_dict()
+    )
+
+
+def _expected_times(df_1day):
+    # The time coordinate each measurement of the day gets in the output.
+    ids = dict.fromkeys(df_1day['id'].unique())
+    return list(_convert_keys_to_datetime(ids, id_to_datetime=_id_to_datetime(df_1day)))
+
+
+def _output_covers(path, times, mc):
+    '''
+    True when the NetCDF at path opens, matches the run type (with or without
+    an MC dimension) and its time coordinate holds every time in times. A
+    missing, unreadable or partial file returns False so the day is redone.
+    '''
+    if not os.path.exists(path):
+        return False
+    try:
+        with xr.open_dataset(path) as existing:
+            if ('MC' in existing.dims) != mc:
+                return False
+            # NumPy datetime hashes depend on their unit, even when the
+            # timestamps compare equal. Normalize both sides for set lookup.
+            stored = set(np.asarray(existing['time'].values, dtype='datetime64[ns]'))
+    except (OSError, ValueError, KeyError):
+        return False
+    return set(np.array(times, dtype='datetime64[ns]')) <= stored
+
+
 def _process_id(df, id, *, max_cutoff, mc, n_MC, metadata, sensor_precision=None):
     logger.info('Processing ID %s', id)
     df_id = df[df['id'] == id]
@@ -72,7 +107,9 @@ def _process_id(df, id, *, max_cutoff, mc, n_MC, metadata, sensor_precision=None
 
 class Multiprocessor:
     def __init__(self):
-        pass
+        # Dates the last run/run_MC call left alone because skip_existing found
+        # their outputs complete.
+        self.skipped_dates = []
 
     # Retained for backwards compatibility with notebooks that reference these.
     def convert_keys_to_datetime(self, data):
@@ -89,11 +126,7 @@ class Multiprocessor:
 
     def _run_day(self, df_1day, *, mc, n_MC, metadata, pool, sensor_precision=None):
         max_cutoff = df_1day['timedelta'].max()
-        id_to_datetime = (
-            df_1day.groupby('id')['datetime'].min()
-            .apply(lambda value: value.to_pydatetime())
-            .to_dict()
-        )
+        id_to_datetime = _id_to_datetime(df_1day)
         args = [(df_1day, n, max_cutoff, mc, n_MC, metadata, sensor_precision)
                 for n in df_1day['id'].unique()]
         results = pool.starmap(_process_id_wrapper, args)
@@ -133,8 +166,17 @@ class Multiprocessor:
                                              'cutoff': cutoff, 'MC': n_MC})
 
     def run(self, df, chamber_id, output_folder='./output', metadata=None,
-            log_path=None):
+            log_path=None, skip_existing=False):
+        '''
+        skip_existing: if True, a date is not processed again when
+        {chamber_id}_{date}.nc already holds a non-MC result for every
+        measurement of that date. Dates with new or missing measurements are
+        processed and overwritten as usual. Skipped dates are listed in
+        self.skipped_dates; the return value is the last processed dataset,
+        or None when every date was skipped.
+        '''
         metadata = DEFAULT_METADATA if metadata is None else metadata
+        self.skipped_dates = []
         logger.info('Multiprocessing started on %d CPUs', mp.cpu_count())
         pool_kwargs = {}
         if log_path is not None:
@@ -143,17 +185,23 @@ class Multiprocessor:
         with mp.Pool(mp.cpu_count(), **pool_kwargs) as pool:
             ds = None
             for date in df['datetime'].dt.date.unique():
-                logger.info('Processing date %s', date)
                 df_1day = df[df['datetime'].dt.date == date]
+                path = f'{output_folder}/{chamber_id}_{date}.nc'
+                if skip_existing and _output_covers(path, _expected_times(df_1day), mc=False):
+                    logger.info('Skipping date %s: %s is complete', date, path)
+                    self.skipped_dates.append(date)
+                    continue
+                logger.info('Processing date %s', date)
                 converted = self._run_day(df_1day, mc=False, n_MC=None,
                                           metadata=metadata, pool=pool)
                 ds = self._build_dataset_2d(converted)
-                ds.to_netcdf(f'{output_folder}/{chamber_id}_{date}.nc')
+                ds.to_netcdf(path)
                 logger.info('Saved NetCDF for %s', date)
         return ds
 
     def run_MC(self, df, chamber_id, output_folder='./output', save_netcdf=False,
-               sensor_precision=None, n_MC=None, metadata=None, log_path=None):
+               sensor_precision=None, n_MC=None, metadata=None, log_path=None,
+               skip_existing=False):
         '''
         sensor_precision: yerr (ppm) used in the MCMC likelihood. If None, the
         HM_model default (MEASUREMENT_SIGMA_PPM) is used. Scalar only in the
@@ -164,9 +212,17 @@ class Multiprocessor:
         log_path: if given, worker processes redirect soilgasflux_fcs logs to
         this shared log file (append mode) instead of stderr. Lets the caller
         capture per-id failures in the log rather than the notebook output.
+        skip_existing: if True, a date is not processed again when its outputs
+        are complete: with save_netcdf, {chamber_id}_{date}.nc holds an MC
+        result for every measurement of that date and the _bestPareto.nc file
+        exists; without it, the _bestPareto.nc file holds every measurement
+        (so a date where a Pareto front was not found is always redone).
+        Skipped dates are listed in self.skipped_dates; the return value is
+        the last processed dataset, or None when every date was skipped.
         '''
         n_MC = DEFAULT_N_MC if n_MC is None else n_MC
         metadata = DEFAULT_METADATA if metadata is None else metadata
+        self.skipped_dates = []
         logger.info('Multiprocessing (MC) started on %d CPUs', mp.cpu_count())
         pool_kwargs = {}
         if log_path is not None:
@@ -175,14 +231,30 @@ class Multiprocessor:
         with mp.Pool(mp.cpu_count(), **pool_kwargs) as pool:
             ds = None
             for date in df['datetime'].dt.date.unique():
-                logger.info('Processing date %s', date)
                 df_1day = df[df['datetime'].dt.date == date]
+                path = f'{output_folder}/{chamber_id}_{date}.nc'
+                best_path = f'{output_folder}/{chamber_id}_{date}_bestPareto.nc'
+                if skip_existing:
+                    times = _expected_times(df_1day)
+                    # best-Pareto drops times without a Pareto front, so only
+                    # the full MC file can show that a date is complete.
+                    if save_netcdf:
+                        done = (_output_covers(path, times, mc=True)
+                                and _output_covers(best_path, [], mc=True))
+                    else:
+                        done = _output_covers(best_path, times, mc=True)
+                    if done:
+                        logger.info('Skipping date %s: outputs in %s are complete',
+                                    date, output_folder)
+                        self.skipped_dates.append(date)
+                        continue
+                logger.info('Processing date %s', date)
                 converted = self._run_day(df_1day, mc=True, n_MC=n_MC,
                                           metadata=metadata, pool=pool,
                                           sensor_precision=sensor_precision)
                 ds = self._build_dataset_3d(converted)
                 if save_netcdf:
-                    ds.to_netcdf(f'{output_folder}/{chamber_id}_{date}.nc')
+                    ds.to_netcdf(path)
                 self.select_bestPareto(ds=ds, chamber_id=chamber_id, date=date,
                                        output_folder=output_folder)
         return ds

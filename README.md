@@ -281,6 +281,8 @@ results_mc = processor.run_MC(df=df, chamber_id='site_01_MC', output_folder='./o
 
 Output saved as NetCDF files with dimensions: `[time, cutoff, deadband]` or `[time, cutoff, deadband, MC]`
 
+Pass `skip_existing=True` to `run` or `run_MC` to leave dates whose output file in `output_folder` already holds every measurement of that date (dates with new measurements are processed again). Skipped dates are listed in `processor.skipped_dates`. The check looks only at which measurements are present, so turn it off after changing settings or input data.
+
 ### 1.6. Complete Workflow Example
 
 ```python
