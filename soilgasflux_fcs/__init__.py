@@ -1,4 +1,5 @@
 from . import (
+    auxiliary,
     json_reader,
     models,
     metrics,
@@ -20,6 +21,7 @@ __all__ = [
     'BaseChamberModel',
     'Multiprocessor',
     'Pareto',
+    'auxiliary',
     'json_reader',
     'models',
     'metrics',
