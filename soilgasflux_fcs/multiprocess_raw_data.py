@@ -2,8 +2,10 @@ import datetime as dt
 import logging
 import multiprocessing as mp
 import os
+import tempfile
 from contextlib import contextmanager
 from functools import partial
+from uuid import uuid4
 
 import numpy as np
 import xarray as xr
@@ -71,6 +73,11 @@ def _expected_times(df_1day):
     return list(_convert_keys_to_datetime(ids, id_to_datetime=_id_to_datetime(df_1day)))
 
 
+def _time_set(values):
+    # NumPy datetime hashes depend on the unit even for equal timestamps.
+    return set(np.asarray(values, dtype='datetime64[ns]'))
+
+
 def _output_covers(path, times, mc):
     '''
     True when the NetCDF at path opens, matches the run type (with or without
@@ -83,12 +90,40 @@ def _output_covers(path, times, mc):
         with xr.open_dataset(path) as existing:
             if ('MC' in existing.dims) != mc:
                 return False
-            # NumPy datetime hashes depend on their unit, even when the
-            # timestamps compare equal. Normalize both sides for set lookup.
-            stored = set(np.asarray(existing['time'].values, dtype='datetime64[ns]'))
+            stored = _time_set(existing['time'].values)
     except (OSError, ValueError, KeyError):
         return False
-    return set(np.array(times, dtype='datetime64[ns]')) <= stored
+    return _time_set(times) <= stored
+
+
+def _mc_pair_covers(path, best_path, times, pareto_only):
+    try:
+        with xr.open_dataset(path) as saved, xr.open_dataset(best_path) as best:
+            if 'MC' not in saved.dims or 'MC' not in best.dims or 'time' not in best.coords:
+                return False
+            if saved.attrs.get('pareto_run_id') != best.attrs.get('pareto_run_id'):
+                return False
+            if pareto_only:
+                if _time_set(saved['window_time'].values) != _time_set(best['time'].values):
+                    return False
+            return _time_set(times) <= _time_set(saved['time'].values)
+    except (OSError, ValueError, KeyError):
+        return False
+
+
+def _write_netcdf(ds, path):
+    # Publish a complete file so a concurrent reader or a retry after an
+    # interrupted write cannot mistake a partial day's coordinates for success.
+    with tempfile.TemporaryDirectory(dir=os.path.dirname(path)) as tmp:
+        temporary_path = os.path.join(tmp, 'output.nc')
+        ds.to_netcdf(temporary_path)
+        os.replace(temporary_path, path)
+
+
+def _select_windows(ds, windows, dim):
+    """Index paired (time, cutoff, deadband) positions along one output dimension."""
+    times, cutoffs, deadbands = np.asarray(windows, dtype=int).reshape(-1, 3).T
+    return ds.isel(time=(dim, times), cutoff=(dim, cutoffs), deadband=(dim, deadbands))
 
 
 def _process_id(df_id, id, *, max_cutoff, mc, n_MC, metadata, sensor_precision=None):
@@ -217,7 +252,7 @@ class Multiprocessor:
 
     def run_MC(self, df, chamber_id, output_folder='./output', save_netcdf=False,
                sensor_precision=None, n_MC=None, metadata=None, log_path=None,
-               skip_existing=False):
+               skip_existing=False, save_pareto_only=False):
         '''
         sensor_precision: yerr (ppm) used in the MCMC likelihood. If None, the
         HM_model default (MEASUREMENT_SIGMA_PPM) is used. Scalar only in the
@@ -226,11 +261,17 @@ class Multiprocessor:
         metadata: chamber geometry dictionary with area [cm^2] and volume
         [cm^3]. If None, uses DEFAULT_METADATA.
         log_path: append worker diagnostics to this file on the calling computer.
+        save_pareto_only: write {chamber_id}_{date}_paretoFront.nc with every
+        non-dominated window's MC samples and all fit metrics, plus the usual
+        _bestPareto.nc. This takes precedence over save_netcdf. The returned
+        dataset still contains the full grid.
         skip_existing: if True, a date is not processed again when its outputs
         are complete: with save_netcdf, {chamber_id}_{date}.nc holds an MC
         result for every measurement of that date and the _bestPareto.nc file
         exists; without it, the _bestPareto.nc file holds every measurement
         (so a date where a Pareto front was not found is always redone).
+        In Pareto-only mode the front records all processed times, including
+        measurements with zero retained windows. Both Pareto files are checked.
         Skipped dates are listed in self.skipped_dates; the return value is
         the last processed dataset, or None when every date was skipped.
         '''
@@ -242,14 +283,13 @@ class Multiprocessor:
             for date in df['datetime'].dt.date.unique():
                 df_1day = df[df['datetime'].dt.date == date]
                 path = f'{output_folder}/{chamber_id}_{date}.nc'
+                front_path = f'{output_folder}/{chamber_id}_{date}_paretoFront.nc'
                 best_path = f'{output_folder}/{chamber_id}_{date}_bestPareto.nc'
                 if skip_existing:
                     times = _expected_times(df_1day)
-                    # best-Pareto drops times without a Pareto front, so only
-                    # the full MC file can show that a date is complete.
-                    if save_netcdf:
-                        done = (_output_covers(path, times, mc=True)
-                                and _output_covers(best_path, [], mc=True))
+                    if save_pareto_only or save_netcdf:
+                        done = _mc_pair_covers(front_path if save_pareto_only else path,
+                                               best_path, times, save_pareto_only)
                     else:
                         done = _output_covers(best_path, times, mc=True)
                     if done:
@@ -262,55 +302,55 @@ class Multiprocessor:
                                           metadata=metadata, map_measurements=map_measurements,
                                           sensor_precision=sensor_precision)
                 ds = self._build_dataset_3d(converted)
-                if save_netcdf:
-                    ds.to_netcdf(path)
+                if save_netcdf and not save_pareto_only:
+                    _write_netcdf(ds, path)
                 self.select_bestPareto(ds=ds, chamber_id=chamber_id, date=date,
-                                       output_folder=output_folder)
+                                       output_folder=output_folder,
+                                       front_path=front_path if save_pareto_only else None)
         return ds
 
-    def select_bestPareto(self, ds, chamber_id, date, output_folder=None):
+    def select_bestPareto(self, ds, chamber_id, date, output_folder=None, *, front_path=None):
         '''
         Return an xr.Dataset with the Pareto-optimal (deadband, cutoff) per time.
+        If front_path is supplied, also save all non-dominated windows there.
         '''
         logger.info('Selecting best Pareto front')
-        deadband = ds.coords['deadband']
-        cutoff = ds.coords['cutoff']
-        n_MC = ds.coords['MC']
-
-        times, deadbands, cutoffs, best_dcdt = [], [], [], []
-        for time in ds.coords['time'].values:
-            pa = Pareto(dsMC=ds.sel(time=time))
-            norm_u, norm_l, flat_u, flat_l = pa.prepare_metrics()
-            pareto_indices = pa.find_pareto_front(x=flat_u, y=flat_l,
-                                                  maximize_x=False, maximize_y=False)
-            try:
-                best_x, best_y = pa.get_best_from_pareto(
-                    pareto_indices=pareto_indices, metric_x=norm_u, metric_y=norm_l,
-                )
-            except (ValueError, IndexError, TypeError) as e:
-                logger.warning('Pareto front not found at time %s: %s', time, e)
+        best_windows, front_windows = [], []
+        front_uncertainty, front_loss = [], []
+        for i, time in enumerate(ds.time.values):
+            if not ds.sizes['cutoff'] or not ds.sizes['deadband']:
                 continue
+            pa = Pareto(dsMC=ds.isel(time=i))
+            norm_u, norm_l, flat_u, flat_l = pa.prepare_metrics()
+            pareto_indices = pa.find_pareto_front(x=flat_u, y=flat_l)
+            if not pareto_indices.size:
+                logger.warning('Pareto front not found at time %s', time)
+                continue
+            best_cutoff, best_deadband = pa.get_best_from_pareto(pareto_indices, norm_u, norm_l)
+            best_windows.append((i, best_cutoff, best_deadband))
+            if front_path is not None:
+                cutoffs, deadbands = pa.get_coords_pareto(pareto_indices)
+                front_windows.extend((i, c, d) for c, d in zip(cutoffs, deadbands))
+                front_uncertainty.extend(flat_u[pareto_indices])
+                front_loss.extend(flat_l[pareto_indices])
 
-            hist_dcdt = ds.sel(time=time,
-                               deadband=deadband[best_y].values,
-                               cutoff=cutoff[best_x].values)['dcdt(HM)']
+        ds_best = _select_windows(ds[['dcdt(HM)']], best_windows, 'time').astype(np.float32)
+        ds_best = ds_best.rename({'cutoff': 'best_cutoff', 'deadband': 'best_deadband'})
+        ds_best = ds_best.reset_coords(['best_cutoff', 'best_deadband'])
 
-            times.append(time)
-            deadbands.append(deadband[best_y].values)
-            cutoffs.append(cutoff[best_x].values)
-            best_dcdt.append(hist_dcdt.values)
-
-        ds_best = xr.Dataset(
-            {
-                'dcdt(HM)': (['time', 'MC'], np.array(best_dcdt, dtype=np.float32)),
-                'best_deadband': (['time'], np.array(deadbands, dtype=int)),
-                'best_cutoff': (['time'], np.array(cutoffs, dtype=int)),
-            },
-            coords={'time': times, 'MC': n_MC},
-        )
+        if front_path is not None:
+            ds_front = _select_windows(ds, front_windows, 'window').rename({'time': 'window_time'})
+            # Preserve normalization against all fitted windows for plots and
+            # for reproducing the best compromise from the compact file alone.
+            ds_front = ds_front.assign_coords(
+                time=ds.time, normalized_uncertainty=('window', front_uncertainty),
+                normalized_neg_logprob=('window', front_loss),
+            )
+            ds_front.attrs['pareto_run_id'] = ds_best.attrs['pareto_run_id'] = uuid4().hex
+            _write_netcdf(ds_front, front_path)
 
         if output_folder is not None:
-            ds_best.to_netcdf(f'{output_folder}/{chamber_id}_{date}_bestPareto.nc')
+            _write_netcdf(ds_best, f'{output_folder}/{chamber_id}_{date}_bestPareto.nc')
             logger.info('Saved best-Pareto NetCDF to %s', output_folder)
         return ds_best
 

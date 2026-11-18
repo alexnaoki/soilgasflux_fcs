@@ -279,7 +279,17 @@ results = processor.run(df=df, chamber_id='site_01', output_folder='./output')
 results_mc = processor.run_MC(df=df, chamber_id='site_01_MC', output_folder='./output')
 ```
 
-Output saved as NetCDF files with dimensions: `[time, cutoff, deadband]` or `[time, cutoff, deadband, MC]`
+Standard runs save a daily NetCDF grid with dimensions `(time, cutoff, deadband)`. For MCMC, choose which windows to keep on disk.
+
+| `run_MC` setting | Daily MCMC files |
+| --- | --- |
+| Default | `*_bestPareto.nc` with the dC/dt draws for the best window per measurement |
+| `save_netcdf=True` | Best-window file and the full `(time, cutoff, deadband, MC)` grid |
+| `save_pareto_only=True` | Best-window file and `*_paretoFront.nc` with all non-dominated windows |
+
+For example, `processor.run_MC(df, "site_01_MC", "./output", save_pareto_only=True)` stores each retained window once in the front file. Its six fit variables have dimensions `(window, MC)`. The `window_time`, `deadband`, and `cutoff` coordinates identify each window. The `time` coordinate lists every processed measurement, including those with no valid fits.
+
+`save_pareto_only=True` takes precedence over `save_netcdf`. All windows are still fitted, and the return value contains the full grid for the last processed day. Previously saved full-grid files stay on disk.
 
 Pass `skip_existing=True` to `run` or `run_MC` to leave dates whose output file in `output_folder` already holds every measurement of that date (dates with new measurements are processed again). Skipped dates are listed in `processor.skipped_dates`. The check looks only at which measurements are present, so turn it off after changing settings or input data.
 
@@ -334,7 +344,7 @@ df = initializer.prepare_rawdata()
 
 # 2. Process with uncertainty
 processor = multiprocess_raw_data.Multiprocessor()
-results = processor.run_MC(df, 'analysis', './output')
+results = processor.run_MC(df, 'analysis', './output', save_netcdf=True)
 
 # 3. Analyze results
 ds = xr.open_dataset('./output/analysis_2024-01-01.nc')

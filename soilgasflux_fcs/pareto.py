@@ -1,6 +1,17 @@
 import numpy as np
 
 
+def _normalize(values):
+    finite = np.isfinite(values)
+    scaled = np.full(values.shape, np.nan)
+    if finite.any():
+        valid = values[finite].astype(float, copy=False)
+        span = valid.max() - valid.min()
+        # A constant objective contributes no distance, including a one-window fit.
+        scaled[finite] = (valid - valid.min()) / span if span else 0.0
+    return scaled
+
+
 class Pareto:
     def __init__(self, dsMC):
         self.dsMC = dsMC
@@ -18,9 +29,10 @@ class Pareto:
         otherwise raw values are returned.
         '''
         dsMC = self.dsMC
-        uncertaintyRange = dsMC.quantile(0.84, dim=['MC'])['dcdt(HM)'] - dsMC.quantile(0.16, dim=['MC'])['dcdt(HM)']
-        logprob = -dsMC.median(dim=['MC'])['logprob(HM)']
-        logprob = logprob.where(logprob != np.inf, np.nan)
+        quantiles = dsMC['dcdt(HM)'].quantile([0.16, 0.84], dim='MC')
+        uncertaintyRange = quantiles.isel(quantile=1, drop=True) - quantiles.isel(quantile=0, drop=True)
+        logprob = -dsMC['logprob(HM)'].median(dim='MC')
+        logprob = logprob.where(np.isfinite(logprob))
 
         self.logprob = logprob
         self.uncertaintyRange = uncertaintyRange
@@ -29,22 +41,8 @@ class Pareto:
         l = logprob.values
 
         if normalize:
-            u_2d = (u - np.nanmin(u)) / (np.nanmax(u) - np.nanmin(u))
-            l_2d = (l - np.nanmin(l)) / (np.nanmax(l) - np.nanmin(l))
-        else:
-            u_2d = u
-            l_2d = l
-
-        u_flat = u.flatten()
-        l_flat = l.flatten()
-        if normalize:
-            flat_u = (u_flat - np.nanmin(u_flat)) / (np.nanmax(u_flat) - np.nanmin(u_flat))
-            flat_l = (l_flat - np.nanmin(l_flat)) / (np.nanmax(l_flat) - np.nanmin(l_flat))
-        else:
-            flat_u = u_flat
-            flat_l = l_flat
-
-        return u_2d, l_2d, flat_u, flat_l
+            u, l = _normalize(u), _normalize(l)
+        return u, l, u.flatten(), l.flatten()
 
     def find_pareto_front(self, x, y, maximize_x=False, maximize_y=False):
         '''
@@ -72,7 +70,7 @@ class Pareto:
         return np.array(pareto_indices, dtype=int)
 
     def get_coords_pareto(self, pareto_indices):
-        shape = self.dsMC.median(dim=['MC'])['dcdt(HM)'].shape
+        shape = tuple(size for dim, size in self.dsMC['dcdt(HM)'].sizes.items() if dim != 'MC')
         return np.unravel_index(pareto_indices, shape, order='C')
 
     def get_best_from_pareto(self, pareto_indices, metric_x, metric_y):
