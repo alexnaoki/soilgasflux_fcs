@@ -12,6 +12,8 @@ This folder contains notebooks for turning raw chamber measurements into FCS pro
 
 Notebooks 01–04 use local multiprocessing by default. To share measurement fits across two computers, enter the scheduler address in the widget (01 or 04) or the `DASK_SCHEDULER_ADDRESS` setting (02 or 03). [Two-computer setup](../../README.md#optional-dask-processing-on-two-computers)
 
+To save disk space with MCMC, check **Save only Pareto-front MCMC results** in notebooks 01 and 04, or set `SAVE_PARETO_ONLY = True` in notebooks 02 and 03. The front file keeps all draws and fit metrics for each non-dominated window. The best-window file remains available for time-series and flux calculations. The synthetic paper comparison uses the full-grid setting because it also plots arbitrary windows.
+
 ## Legacy Notebooks
 
 Older raw-processing and summary notebooks are kept in `legacy/` for reference. They may contain machine-specific paths or project-specific assumptions.
