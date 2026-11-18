@@ -2,6 +2,8 @@ import datetime as dt
 import logging
 import multiprocessing as mp
 import os
+from contextlib import contextmanager
+from functools import partial
 
 import numpy as np
 import xarray as xr
@@ -89,10 +91,10 @@ def _output_covers(path, times, mc):
     return set(np.array(times, dtype='datetime64[ns]')) <= stored
 
 
-def _process_id(df, id, *, max_cutoff, mc, n_MC, metadata, sensor_precision=None):
+def _process_id(df_id, id, *, max_cutoff, mc, n_MC, metadata, sensor_precision=None):
     logger.info('Processing ID %s', id)
-    df_id = df[df['id'] == id]
-    fcs = FCS(df_data=df_id, chamber_id='test')
+    # Model windows and initial-condition lookups use offsets within a closure.
+    fcs = FCS(df_data=df_id.reset_index(drop=True), chamber_id='test')
     fcs.settings(
         moving_window=True, window_walk=DEFAULT_WINDOW_WALK,
         min_window_size=DEFAULT_MIN_WINDOW_SIZE,
@@ -106,7 +108,10 @@ def _process_id(df, id, *, max_cutoff, mc, n_MC, metadata, sensor_precision=None
 
 
 class Multiprocessor:
-    def __init__(self):
+    """Fit batches locally, or on the Dask scheduler at scheduler_address."""
+
+    def __init__(self, scheduler_address=None):
+        self.scheduler_address = scheduler_address.strip() if scheduler_address else None
         # Dates the last run/run_MC call left alone because skip_existing found
         # their outputs complete.
         self.skipped_dates = []
@@ -116,20 +121,36 @@ class Multiprocessor:
         return _convert_keys_to_datetime(data)
 
     def process_id(self, df, id):
-        return _process_id(df, id, max_cutoff=df['timedelta'].max(),
+        return _process_id(df[df['id'] == id], id, max_cutoff=df['timedelta'].max(),
                            mc=False, n_MC=None, metadata=DEFAULT_METADATA)
 
     def process_id_MC(self, df, id, sensor_precision=None):
-        return _process_id(df, id, max_cutoff=df['timedelta'].max(),
+        return _process_id(df[df['id'] == id], id, max_cutoff=df['timedelta'].max(),
                            mc=True, n_MC=DEFAULT_N_MC, metadata=DEFAULT_METADATA,
                            sensor_precision=sensor_precision)
 
-    def _run_day(self, df_1day, *, mc, n_MC, metadata, pool, sensor_precision=None):
-        max_cutoff = df_1day['timedelta'].max()
+    @contextmanager
+    def _measurement_mapper(self, log_path):
+        if self.scheduler_address:
+            from ._dask import dask_mapper
+            with dask_mapper(self.scheduler_address, log_path) as map_measurements:
+                yield map_measurements
+        else:
+            logger.info('Multiprocessing started on %d CPUs', mp.cpu_count())
+            options = {}
+            if log_path is not None:
+                options = {'initializer': _init_worker_logging, 'initargs': (str(log_path),)}
+            with mp.Pool(mp.cpu_count(), **options) as pool:
+                yield pool.map
+
+    def _run_day(self, df_1day, *, mc, n_MC, metadata, map_measurements, sensor_precision=None):
         id_to_datetime = _id_to_datetime(df_1day)
-        args = [(df_1day, n, max_cutoff, mc, n_MC, metadata, sensor_precision)
-                for n in df_1day['id'].unique()]
-        results = pool.starmap(_process_id_wrapper, args)
+        groups = df_1day.groupby('id', sort=False, observed=True)
+        fit = partial(_process_id_wrapper, max_cutoff=df_1day['timedelta'].max(),
+                      mc=mc, n_MC=n_MC, metadata=metadata, sensor_precision=sensor_precision)
+        # First-seen measurement order also defines the output time coordinate.
+        measurements = [(key, groups.get_group(key)) for key in df_1day['id'].unique()]
+        results = map_measurements(fit, measurements)
         combined = {k: v for result in results for k, v in result.items()}
         return _convert_keys_to_datetime(combined, id_to_datetime=id_to_datetime)
 
@@ -177,12 +198,7 @@ class Multiprocessor:
         '''
         metadata = DEFAULT_METADATA if metadata is None else metadata
         self.skipped_dates = []
-        logger.info('Multiprocessing started on %d CPUs', mp.cpu_count())
-        pool_kwargs = {}
-        if log_path is not None:
-            pool_kwargs = {'initializer': _init_worker_logging,
-                           'initargs': (str(log_path),)}
-        with mp.Pool(mp.cpu_count(), **pool_kwargs) as pool:
+        with self._measurement_mapper(log_path) as map_measurements:
             ds = None
             for date in df['datetime'].dt.date.unique():
                 df_1day = df[df['datetime'].dt.date == date]
@@ -193,7 +209,7 @@ class Multiprocessor:
                     continue
                 logger.info('Processing date %s', date)
                 converted = self._run_day(df_1day, mc=False, n_MC=None,
-                                          metadata=metadata, pool=pool)
+                                          metadata=metadata, map_measurements=map_measurements)
                 ds = self._build_dataset_2d(converted)
                 ds.to_netcdf(path)
                 logger.info('Saved NetCDF for %s', date)
@@ -209,9 +225,7 @@ class Multiprocessor:
         n_MC: number of MCMC samples per fit. If None, uses DEFAULT_N_MC.
         metadata: chamber geometry dictionary with area [cm^2] and volume
         [cm^3]. If None, uses DEFAULT_METADATA.
-        log_path: if given, worker processes redirect soilgasflux_fcs logs to
-        this shared log file (append mode) instead of stderr. Lets the caller
-        capture per-id failures in the log rather than the notebook output.
+        log_path: append worker diagnostics to this file on the calling computer.
         skip_existing: if True, a date is not processed again when its outputs
         are complete: with save_netcdf, {chamber_id}_{date}.nc holds an MC
         result for every measurement of that date and the _bestPareto.nc file
@@ -223,12 +237,7 @@ class Multiprocessor:
         n_MC = DEFAULT_N_MC if n_MC is None else n_MC
         metadata = DEFAULT_METADATA if metadata is None else metadata
         self.skipped_dates = []
-        logger.info('Multiprocessing (MC) started on %d CPUs', mp.cpu_count())
-        pool_kwargs = {}
-        if log_path is not None:
-            pool_kwargs = {'initializer': _init_worker_logging,
-                           'initargs': (str(log_path),)}
-        with mp.Pool(mp.cpu_count(), **pool_kwargs) as pool:
+        with self._measurement_mapper(log_path) as map_measurements:
             ds = None
             for date in df['datetime'].dt.date.unique():
                 df_1day = df[df['datetime'].dt.date == date]
@@ -250,7 +259,7 @@ class Multiprocessor:
                         continue
                 logger.info('Processing date %s', date)
                 converted = self._run_day(df_1day, mc=True, n_MC=n_MC,
-                                          metadata=metadata, pool=pool,
+                                          metadata=metadata, map_measurements=map_measurements,
                                           sensor_precision=sensor_precision)
                 ds = self._build_dataset_3d(converted)
                 if save_netcdf:
@@ -306,8 +315,8 @@ class Multiprocessor:
         return ds_best
 
 
-def _process_id_wrapper(df, id, max_cutoff, mc, n_MC, metadata, sensor_precision=None):
-    # Top-level wrapper so starmap can pickle it.
+def _process_id_wrapper(measurement, *, max_cutoff, mc, n_MC, metadata, sensor_precision):
+    id, df = measurement
     try:
         return _process_id(df, id, max_cutoff=max_cutoff, mc=mc, n_MC=n_MC,
                            metadata=metadata, sensor_precision=sensor_precision)
