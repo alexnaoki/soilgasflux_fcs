@@ -10,6 +10,8 @@ This folder contains notebooks for turning raw chamber measurements into FCS pro
 - `04_process_raw_data_with_preprocessing.ipynb` extends the widget workflow with a protected preprocessing copy between column mapping and FCS processing. It supports general acceptable-value ranges and ID-by-ID elapsed-time removal ranges for CO2, pressure, temperature, or humidity; rejected values are interpolated within each measurement ID. Changes can be previewed, accumulated, undone, reset, and optionally exported with an edit log without modifying source files. FCS processing may continue with null pressure, temperature, or humidity values and displays a warning so those environmental gaps can be filled later; null IDs, times, or CO2 values remain blocking.
 - `05_prepare_auxiliary_flux_data.ipynb` is the interactive auxiliary-data workflow to run after raw-data collection and before a future flux calculation. It loads CSV files or project JSON folders, maps timestamp, measurement, pressure, temperature, humidity, chamber, and geometry columns, validates and interpolates environmental signals within each measurement, derives water-vapor mole fraction with the package Buck-equation helper, and previews explicit quality flags. It does not calculate dC/dt or flux.
 
+Notebooks 01–04 use local multiprocessing by default. To share measurement fits across two computers, enter the scheduler address in the widget (01 or 04) or the `DASK_SCHEDULER_ADDRESS` setting (02 or 03). [Two-computer setup](../../README.md#optional-dask-processing-on-two-computers)
+
 ## Legacy Notebooks
 
 Older raw-processing and summary notebooks are kept in `legacy/` for reference. They may contain machine-specific paths or project-specific assumptions.

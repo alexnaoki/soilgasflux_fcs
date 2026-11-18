@@ -283,6 +283,45 @@ Output saved as NetCDF files with dimensions: `[time, cutoff, deadband]` or `[ti
 
 Pass `skip_existing=True` to `run` or `run_MC` to leave dates whose output file in `output_folder` already holds every measurement of that date (dates with new measurements are processed again). Skipped dates are listed in `processor.skipped_dates`. The check looks only at which measurements are present, so turn it off after changing settings or input data.
 
+#### Optional Dask processing on two computers
+
+The default runs on your personal computer. To share a batch over a private LAN or VPN, run a scheduler on your personal computer and a worker on each computer. Each task fits one chamber measurement. Your personal computer reads the inputs, selects the best Pareto windows, and writes the NetCDF files. The second computer only needs the software.
+
+1. Use the same project revision and Python version on both computers. In each project's activated environment, install the optional extra and check that the Dask and Distributed versions match. Use the same scientific package versions for comparable fits.
+
+   ```shell
+   python -m pip install -e ".[dask]"
+   python -m pip show dask distributed
+   ```
+
+2. On the MacBook, run the scheduler launcher from the project folder. It also starts one local worker so both Macs can fit measurements. It prints the scheduler address for the notebook and the exact command to copy to the Mac mini.
+
+   ```shell
+   python start_dask_scheduler.py
+   ```
+
+   If you want to use a specific LAN or VPN interface, pass its address, for example `python start_dask_scheduler.py --host 192.168.1.10`.
+
+3. On the Mac mini, activate the same project environment and run the printed command from its project folder. In this example, replace `192.168.1.10` with the MacBook address. Keep both terminals open during processing. The worker starts with one process and one thread. Add `--nworkers 2` to fit two measurements at once on the Mac mini if memory permits.
+
+   ```shell
+   python start_dask_worker.py tcp://192.168.1.10:8786
+   ```
+
+4. Before a long run, check that both computer names appear from the notebook. If only one appears, check the worker terminal on the missing computer and that the two machines can reach each other's private network addresses. [Dask network and port setup](https://docs.dask.org/en/stable/deploying-cli.html#handling-ports)
+
+   ```python
+   import socket
+   from distributed import Client
+
+   address = "tcp://192.168.1.10:8786"
+   with Client(address, timeout=10) as client:
+       print(client.run(socket.gethostname))  # worker address -> computer name
+       client.get_versions(check=True)
+   ```
+
+5. Enter the address in **Dask scheduler address** in processing notebook 01 or 04, or set `DASK_SCHEDULER_ADDRESS` in notebook 02 or 03. In a script, use `Multiprocessor(scheduler_address=address)` with the usual `run()` or `run_MC()` call. Leave the field blank or use `None` for local multiprocessing. When finished, stop the workers and scheduler with Ctrl+C in their terminals.
+
 ### 1.6. Complete Workflow Example
 
 ```python
